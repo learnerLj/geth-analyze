@@ -182,7 +182,7 @@
 │       │   └── internal
 │       │       └── tracers
 │       └── native
-├── ethclient	//RPC 调研的客户端
+├── ethclient	//RPC 调用的客户端
 │   └── gethclient
 ├── ethdb	//数据库
 │   ├── dbtest
