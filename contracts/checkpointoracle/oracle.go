@@ -1,11 +1,5 @@
 // Package checkpointoracle is an on-chain light client checkpoint oracle.
-/*区块链的链上预言机：
 
-
-
-
-
- */
 package checkpointoracle
 
 //go:generate abigen --sol contract/oracle.sol --pkg contract --out contract/oracle.go
@@ -23,7 +17,7 @@ import (
 // CheckpointOracle is a Go wrapper around an on-chain checkpoint oracle contract.
 type CheckpointOracle struct {
 	address  common.Address
-	contract *contract.CheckpointOracle
+	contract *contract.CheckpointOracle //预言机类型封装，包括了调用内容、绑定的合约的封装、筛选器
 }
 
 // NewCheckpointOracle binds checkpoint contract and returns a registrar instance.
