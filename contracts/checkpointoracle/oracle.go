@@ -20,6 +20,7 @@ type CheckpointOracle struct {
 	contract *contract.CheckpointOracle //预言机类型封装，包括了调用内容、绑定的合约的封装、筛选器
 }
 
+//oracle 绑定合约
 // NewCheckpointOracle binds checkpoint contract and returns a registrar instance.
 func NewCheckpointOracle(contractAddr common.Address, backend bind.ContractBackend) (*CheckpointOracle, error) {
 	c, err := contract.NewCheckpointOracle(contractAddr, backend)
@@ -28,6 +29,8 @@ func NewCheckpointOracle(contractAddr common.Address, backend bind.ContractBacke
 	}
 	return &CheckpointOracle{address: contractAddr, contract: c}, nil
 }
+
+//获取地址
 
 // ContractAddr returns the address of contract.
 func (oracle *CheckpointOracle) ContractAddr() common.Address {
@@ -38,6 +41,8 @@ func (oracle *CheckpointOracle) ContractAddr() common.Address {
 func (oracle *CheckpointOracle) Contract() *contract.CheckpointOracle {
 	return oracle.contract
 }
+
+//查找某部分的检查点事件
 
 // LookupCheckpointEvents searches checkpoint event for specific section in the
 // given log batches.
@@ -57,6 +62,8 @@ func (oracle *CheckpointOracle) LookupCheckpointEvents(blockLogs [][]*types.Log,
 	}
 	return votes
 }
+
+//根据签名生成（注册）检查点
 
 // RegisterCheckpoint registers the checkpoint with a batch of associated signatures
 // that are collected off-chain and sorted by lexicographical order.
