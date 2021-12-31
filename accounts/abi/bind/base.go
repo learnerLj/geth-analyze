@@ -101,6 +101,8 @@ func (m *MetaData) GetAbi() (*abi.ABI, error) {
 	return m.ab, nil
 }
 
+//对将要或已经部署的合约的封装
+
 // BoundContract is the base wrapper object that reflects a contract on the
 // Ethereum network. It contains a collection of methods that are used by the
 // higher level contract bindings to operate.

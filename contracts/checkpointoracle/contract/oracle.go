@@ -130,6 +130,8 @@ type CheckpointOracleTransactorRaw struct {
 	Contract *CheckpointOracleTransactor // Generic write-only contract binding to access the raw methods on
 }
 
+//将 oracle 绑定到部署的合约，backend 指的是已经部署的合约
+
 // NewCheckpointOracle creates a new instance of CheckpointOracle, bound to a specific deployed contract.
 func NewCheckpointOracle(address common.Address, backend bind.ContractBackend) (*CheckpointOracle, error) {
 	contract, err := bindCheckpointOracle(address, backend, backend, backend)
@@ -165,6 +167,8 @@ func NewCheckpointOracleFilterer(address common.Address, filterer bind.ContractF
 	}
 	return &CheckpointOracleFilterer{contract: contract}, nil
 }
+
+//封装 oracle 合约
 
 // bindCheckpointOracle binds a generic wrapper to an already deployed contract.
 func bindCheckpointOracle(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
@@ -229,7 +233,6 @@ func (_CheckpointOracle *CheckpointOracleCaller) GetAllAdmin(opts *bind.CallOpts
 	return out0, err
 
 }
-
 // GetAllAdmin is a free data retrieval call binding the contract method 0x45848dfc.
 //
 // Solidity: function GetAllAdmin() view returns(address[])
