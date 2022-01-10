@@ -4,6 +4,9 @@ package checkpointoracle
 
 //go:generate abigen --sol contract/oracle.sol --pkg contract --out contract/oracle.go
 
+//使用 abigen 工具根据目录contract 下的 oracle.sol,在 contract 包内 生成目录contract 下的 oracle.go 文件，
+//里面是合约相关的 Golang语言的封装
+
 import (
 	"errors"
 	"math/big"
@@ -20,7 +23,8 @@ type CheckpointOracle struct {
 	contract *contract.CheckpointOracle //预言机类型封装，包括了调用内容、绑定的合约的封装、筛选器
 }
 
-//oracle 绑定合约
+//绑定作为检查点的合约，返回封装好的合约实例
+
 // NewCheckpointOracle binds checkpoint contract and returns a registrar instance.
 func NewCheckpointOracle(contractAddr common.Address, backend bind.ContractBackend) (*CheckpointOracle, error) {
 	c, err := contract.NewCheckpointOracle(contractAddr, backend)
@@ -42,7 +46,7 @@ func (oracle *CheckpointOracle) Contract() *contract.CheckpointOracle {
 	return oracle.contract
 }
 
-//查找某部分的检查点事件
+//查找检查点事件，可以作为这一段的可信点
 
 // LookupCheckpointEvents searches checkpoint event for specific section in the
 // given log batches.
