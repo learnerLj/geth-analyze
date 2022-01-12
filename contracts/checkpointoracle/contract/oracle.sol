@@ -1,5 +1,7 @@
 pragma solidity ^0.6.0;
 
+//注意，合约并不管生成检查点的具体内容，只负责管理创建、生成检查点的事件，然后交给链外组件完成。这一点与状态机模型是一致的
+
 /**
  * @title CheckpointOracle
  * @author Gary Rong<garyrong@ethereum.org>, Martin Swende <martin.swende@ethereum.org>
@@ -119,11 +121,13 @@ contract CheckpointOracle {
             return false;
         }
 
-        //检查点异常，哈希无效
+        //检查点哈希异常，哈希无效
         // Filter out "invalid" announcement
         if (_hash == "") {
             return false;
         }
+
+        //生成签名哈希
 
         // EIP 191 style signatures
         //
@@ -147,13 +151,16 @@ contract CheckpointOracle {
 
         address lastVoter = address(0);
 
+        //签名按照顺序依次验证， ecrecover函数用于验证签名是否来自可信地址，这里采用的是 EIP191 标准的签名，
+        //更进一步了解可见 https://soliditydeveloper.com/ecrecover
+
         // In order for us not to have to maintain a mapping of who has already
         // voted, and we don't want to count a vote twice, the signatures must
         // be submitted in strict ordering.
         for (uint256 idx = 0; idx < v.length; idx++) {
             address signer = ecrecover(signedHash, v[idx], r[idx], s[idx]);
-            require(admins[signer]);
-            require(uint256(signer) > uint256(lastVoter));
+            require(admins[signer]); //签名生成的地址属于管理者
+            require(uint256(signer) > uint256(lastVoter)); //按照地址排序，在前一个人之后验证
             lastVoter = signer;
             emit NewCheckpointVote(
                 _sectionIndex,
@@ -163,6 +170,8 @@ contract CheckpointOracle {
                 s[idx]
             );
 
+            //签名人数已足够
+
             // Sufficient signatures present, update latest checkpoint.
             if (idx + 1 >= threshold) {
                 hash = _hash;
@@ -171,6 +180,8 @@ contract CheckpointOracle {
                 return true;
             }
         }
+        //如果未达到签名人数的阈值，则回滚
+
         // We shouldn't wind up here, reverting un-emits the events
         revert();
     }
@@ -190,11 +201,18 @@ contract CheckpointOracle {
     /*
         Fields
     */
+
+    //管理员列表中有权参与的人的标记
+
     // A map of admin users who have the permission to update CHT and bloom Trie root
     mapping(address => bool) admins;
 
+    //管理员列表
+
     // A list of admin users so that we can obtain all admin users.
     address[] adminList;
+
+    //最新一段的编号
 
     // Latest stored section id
     uint64 sectionIndex;
@@ -202,13 +220,19 @@ contract CheckpointOracle {
     // The block height associated with latest registered checkpoint.
     uint256 height;
 
+    //注册检查点时的哈希
+
     // The hash of latest registered checkpoint.
     bytes32 hash;
+
+    //每过这一段大小就生成一个检查点
 
     // The frequency for creating a checkpoint
     //
     // The default value should be the same as the checkpoint size(32768) in the ethereum.
     uint256 sectionSize;
+
+    //构造预言机的检查点时，需要的可信签名的个数，多一些人验证可以防止因为链重组造成的异常
 
     // The number of confirmations needed before a checkpoint can be registered.
     // We have to make sure the checkpoint registered will not be invalid due to
@@ -217,6 +241,8 @@ contract CheckpointOracle {
     // The default value should be the same as the checkpoint process confirmations(256)
     // in the ethereum.
     uint256 processConfirms;
+
+    //生成可信检查点需要验证的最小的签名个数
 
     // The required signatures to finalize a stable checkpoint.
     uint256 threshold;

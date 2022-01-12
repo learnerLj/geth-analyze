@@ -41,25 +41,27 @@ func (oracle *CheckpointOracle) ContractAddr() common.Address {
 	return oracle.address
 }
 
+//获取可直接用于调用函数的合约实例
+
 // Contract returns the underlying contract instance.
 func (oracle *CheckpointOracle) Contract() *contract.CheckpointOracle {
 	return oracle.contract
 }
 
-//查找检查点事件，可以作为这一段的可信点
+//查找某一段内生成检查点时的投票事件（即参与验证签名）
 
 // LookupCheckpointEvents searches checkpoint event for specific section in the
 // given log batches.
 func (oracle *CheckpointOracle) LookupCheckpointEvents(blockLogs [][]*types.Log, section uint64, hash common.Hash) []*contract.CheckpointOracleNewCheckpointVote {
 	var votes []*contract.CheckpointOracleNewCheckpointVote
 
-	for _, logs := range blockLogs {
+	for _, logs := range blockLogs { //需检索的日志
 		for _, log := range logs {
-			event, err := oracle.contract.ParseNewCheckpointVote(*log)
+			event, err := oracle.contract.ParseNewCheckpointVote(*log) //解析日志中的事件
 			if err != nil {
 				continue
 			}
-			if event.Index == section && event.CheckpointHash == hash {
+			if event.Index == section && event.CheckpointHash == hash { //事件在需要检索的这一段，并且哈希值正确。
 				votes = append(votes, event)
 			}
 		}
@@ -67,7 +69,7 @@ func (oracle *CheckpointOracle) LookupCheckpointEvents(blockLogs [][]*types.Log,
 	return votes
 }
 
-//根据签名生成（注册）检查点
+//创建检查点，创建时获取发起的签名，然后调用根据 oracle 合约生成的封装好的代码，给合约发消息
 
 // RegisterCheckpoint registers the checkpoint with a batch of associated signatures
 // that are collected off-chain and sorted by lexicographical order.
