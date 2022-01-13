@@ -131,7 +131,7 @@ contract PriceConsumerV3 {
 
 ### Oracle 的源码实现
 
-类型定义上可见，checkpoint oracle 实际上是一个合约，它的方法也是和普通合约封装类似，
+从类型定义可见，checkpoint oracle 实际上是一个合约，它的方法也是和普通合约封装类似，
 
 1.   通过地址绑定到已部署的合约，调用该合约。
 2.   合约地址。
