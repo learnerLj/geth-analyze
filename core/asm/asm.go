@@ -26,12 +26,12 @@ import (
 
 // Iterator for disassembled EVM instructions
 type instructionIterator struct {
-	code    []byte
-	pc      uint64
-	arg     []byte
-	op      vm.OpCode
-	error   error
-	started bool
+	code    []byte    //字节码
+	pc      uint64    //指示读取位置
+	arg     []byte    //参数
+	op      vm.OpCode //操作码
+	error   error     //错误提示信息
+	started bool      //是否开始执行
 }
 
 // Create a new instruction iterator.
@@ -66,7 +66,7 @@ func (it *instructionIterator) Next() bool {
 
 	it.op = vm.OpCode(it.code[it.pc])
 	if it.op.IsPush() {
-		a := uint64(it.op) - uint64(vm.PUSH1) + 1
+		a := uint64(it.op) - uint64(vm.PUSH1) + 1 //因为 PUSH 操作码有许多类型，分别压入 1 到 32 个字节，pc 指示器需要确定参数所在位置
 		u := it.pc + 1 + a
 		if uint64(len(it.code)) <= it.pc || uint64(len(it.code)) < u {
 			it.error = fmt.Errorf("incomplete push instruction at %v", it.pc)
