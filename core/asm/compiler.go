@@ -26,6 +26,13 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 )
 
+/*名词解释：
+Token:  一个结构体，不仅包含名字还有相关的属性（如开始执行和结束执行的位置），可以当做执行的逻辑. 典型的 tokens 有
+1) 标识符 2) 关键词 3) 操作码 4) 特殊指定的符号 5)固定值
+Pattern: 一串字符串生成特定的 token 的规则.
+Lexeme: lexeme 是源代码中生成 token 的词素，可以理解为源代码中转化成机器码的关键词.
+*/
+
 // Compiler contains information about the parsed source
 // and holds the tokens for the program.
 type Compiler struct {
