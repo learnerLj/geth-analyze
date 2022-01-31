@@ -77,7 +77,7 @@
 |   `devp2p`    | P2P 开发工具，不用运行全节点就可以和其他节点通信。 |
 |   `abigen`    | 代码生成器，把合约封装成易用 Golang 的包. |
 |  `bootnode`   | 客户端的精简版，只实现了网络节点协议, 可以在私有网络中辅助寻找节点。                                                                                                                                                                                                                            |
-|     `evm`     | 以太坊虚拟机 EVM 的开发程序 能够在可配置的环境中运行底层的字节码，方便细致的调试以太坊操作码，深入执行过程。                                                                                                                                                                                                           |
+|     `evm`     | 以太坊虚拟机 EVM 的开发程序 能够在可配置的环境中运行底层的字节码片段，方便细致的调试以太坊操作码，深入执行过程。                                                                                                                                                                                                         |
 |   `rlpdump`   | 以以太坊协议的编码 RLP ([Recursive Length Prefix](https://eth.wiki/en/fundamentals/rlp)) 格式输出。                                                                                                                                                                                                      |
 |   `puppeth`   | 创建新的以太坊网络时的引导。                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 
@@ -85,11 +85,11 @@
 
 ```json
 ├── accounts	//账户管理
-│   ├── abi
-│   │   └── bind
+│   ├── abi		//实现 abi
+│   │   └── bind //生成 合约的 go 语言封装
 │   │       └── backends
 │   ├── external
-│   ├── keystore
+│   ├── keystore //私钥管理，采用 secp256k 加密
 │   │   └── testdata
 │   │       ├── dupes
 │   │       ├── keystore
@@ -97,9 +97,9 @@
 │   │       └── v1
 │   │           └── cb61d5a9c4896fb9658090b597ef0e7be6f7b67e
 │   ├── scwallet
-│   └── usbwallet
-│       └── trezor
-├── build	//用于编译和构建
+│   └── usbwallet //硬件钱包，通过 USB 插入
+│       └── trezor	//硬件钱包的协议
+├── build	//用于编译和构建的脚本
 │   ├── bin
 │   └── deb
 │       └── ethereum
@@ -120,7 +120,7 @@
 │   │       ├── v4test
 │   │       └── v5test
 │   ├── ethkey
-│   ├── evm
+│   ├── evm 
 │   │   ├── internal
 │   │   │   ├── compiler
 │   │   │   └── t8ntool
@@ -143,29 +143,29 @@
 │   │       ├── 7
 │   │       ├── 8
 │   │       └── 9
-│   ├── faucet
+│   ├── faucet //轻量级的水龙头（用于取测试币）
 │   ├── geth
 │   │   └── testdata
 │   │       └── vcheck
 │   │           ├── minisig-sigs
 │   │           ├── signify-sigs
 │   │           └── sigs
-│   ├── p2psim
-│   ├── puppeth
+│   ├── p2psim //模拟 HTTP API 的调用
+│   ├── puppeth //构建私链相关
 │   │   └── testdata
-│   ├── rlpdump
-│   └── utils
+│   ├── rlpdump //格式化 rlp 编码，更加漂亮的输出
+│   └── utils //一些转化、辅助工具
 ├── common	//工具类
-│   ├── bitutil
-│   ├── compiler
+│   ├── bitutil //快速的按位操作
+│   ├── compiler//封装 Solidity 和 Vyper 的字节码
 │   ├── fdlimit
-│   ├── hexutil
-│   ├── math
-│   ├── mclock
-│   └── prque
+│   ├── hexutil //十六进制编码
+│   ├── math //整数的相关数学工具
+│   ├── mclock //用于计时的固定点
+│   └── prque //优先队列数据结构
 ├── consensus //共识算法部分
-│   ├── clique
-│   ├── ethash
+│   ├── clique //POA
+│   ├── ethash //POW
 │   └── misc
 ├── console	//控制台
 │   ├── prompt
@@ -174,21 +174,21 @@
 │   └── checkpointoracle
 │       └── contract
 ├── core	//核心数据结构，包括状态机、链式结构、虚拟机等
-│   ├── asm
-│   ├── bloombits
-│   ├── forkid
-│   ├── rawdb
+│   ├── asm //解析汇编指令
+│   ├── bloombits //布隆过滤器批量处理
+│   ├── forkid //EIP-2124 (https://eips.ethereum.org/EIPS/eip-2124) 的实现
+│   ├── rawdb //底层数据库访问
 │   │   └── testdata
-│   ├── state
+│   ├── state //以太坊状态树的缓存
 │   │   ├── pruner
-│   │   └── snapshot
-│   ├── types
-│   └── vm
-│       ├── runtime
+│   │   └── snapshot //动态状态存储
+│   ├── types //共识机制中的数据类型
+│   └── vm //EVM 的实现
+│       ├── runtime //负责字节码的执行
 │       └── testdata
 │           └── precompiles
 ├── crypto	//哈希算法和密码学
-│   ├── blake2b
+│   ├── blake2b 
 │   ├── bls12381
 │   ├── bn256
 │   │   ├── cloudflare
@@ -215,34 +215,34 @@
 │   ├── audits
 │   └── postmortems
 ├── eth	//以太坊协议
-│   ├── catalyst
-│   ├── downloader
-│   ├── ethconfig
-│   ├── fetcher
-│   ├── filters
+│   ├── catalyst //RPC 相关
+│   ├── downloader //全节点同步
+│   ├── ethconfig //以太坊配置文件和轻节点配置文件
+│   ├── fetcher //获取同步时的区块头、交易等
+│   ├── filters //区块、日志、事件、交易的过滤
 │   ├── gasprice
 │   ├── protocols
 │   │   ├── eth
 │   │   └── snap
-│   └── tracers
+│   └── tracers //跟踪交易
 │       ├── internal
 │       │   └── tracetest
 │       │       └── testdata
 │       │           ├── call_tracer
 │       │           └── call_tracer_legacy
-│       ├── js
+│       ├── js //js 写的交易跟踪器
 │       │   └── internal
 │       │       └── tracers
-│       └── native
+│       └── native //go 写的交易跟踪器
 ├── ethclient	//RPC 调用的客户端
 │   └── gethclient
 ├── ethdb	//数据库
 │   ├── dbtest
-│   ├── leveldb
-│   └── memorydb
+│   ├── leveldb //leveldb 数据库实现
+│   └── memorydb //内存映射的数据库实现
 ├── ethstats	//网络状态显示
-├── event	//处理事件部分
-├── graphql	//针对 GraphQL 的部分
+├── event	//处理实时事件
+├── graphql	//提供 GraphQL 的借口
 ├── internal	//内部的一些组件
 │   ├── build
 │   ├── cmdtest
@@ -256,7 +256,7 @@
 │   ├── testlog
 │   ├── utesting
 │   └── web3ext
-├── les	//轻量级子协议
+├── les	//轻量级以太坊子协议(LES)
 │   ├── checkpointoracle
 │   ├── downloader
 │   ├── fetcher
@@ -272,34 +272,34 @@
 │   ├── influxdb
 │   ├── librato
 │   └── prometheus
-├── miner	//挖矿部分
+├── miner	//区块生成和挖矿
 │   └── stress
-│       ├── 1559
-│       ├── clique
-│       └── ethash
-├── mobile //为移动端设置的封装
-├── node	//节点类型
+│       ├── 1559 //EIP1559 的压力测试
+│       ├── clique //Clique 的压测
+│       └── ethash //ethash 的压测
+├── mobile //为移动端设置的简化版 API
+├── node	//节点协议
 ├── p2p	//P2P 网络协议
-│   ├── discover
-│   │   ├── v4wire
-│   │   └── v5wire
+│   ├── discover //节点发现协议
+│   │   ├── v4wire //v4 版本
+│   │   └── v5wire //v5 版本
 │   │       └── testdata
-│   ├── dnsdisc
+│   ├── dnsdisc //EIP1459 提出的发现协议
 │   ├── enode
-│   ├── enr
-│   ├── msgrate
-│   ├── nat
+│   ├── enr //EIP778 提出的节点记录
+│   ├── msgrate //估计节点吞吐量实现更平衡的传输
+│   ├── nat //端口映射
 │   ├── netutil
 │   ├── nodestate
-│   ├── rlpx
+│   ├── rlpx //RLPx 传输协议
 │   ├── simulations
 │   │   ├── adapters
 │   │   ├── examples
 │   │   └── pipes
 │   └── tracker
 ├── params	//参数规定
-├── rlp	//编码部分
-├── rpc	//远程方法调用部分
+├── rlp	//RLP 序列化格式
+├── rpc	//双向 JSON-RPC 2.0
 │   └── testdata
 ├── signer	//数字签名部分
 │   ├── core
@@ -343,9 +343,7 @@
 │   │   ├── migrations
 │   │   └── test
 │   └── testdata
-└── trie	//区块的重要数据结构字典树
+└── trie	//区块的重要数据结构 MPT
 ```
-ugDY6CeKWxdsgGNs
-
 
 
