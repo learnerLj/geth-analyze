@@ -25,6 +25,8 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
+// 主链和测试链的创世块哈希
+
 // Genesis hashes to enforce below configs on.
 var (
 	MainnetGenesisHash = common.HexToHash("0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3")
@@ -33,6 +35,8 @@ var (
 	RinkebyGenesisHash = common.HexToHash("0x6341fd3daf94b748c72ced5a5b26028f2474f5f00d824504e4fa37a75767e177")
 	GoerliGenesisHash  = common.HexToHash("0xbf7e331f7f7c1dd2e05159666b3bf8bc7a8a3a9eb1d518969eab529dd9b88c1a")
 )
+
+//不同链链对应的创世哈希对应的创世检查点映射（类比创世区块的定义）
 
 // TrustedCheckpoints associates each known checkpoint with the genesis hash of
 // the chain it belongs to.
@@ -43,6 +47,8 @@ var TrustedCheckpoints = map[common.Hash]*TrustedCheckpoint{
 	RinkebyGenesisHash: RinkebyTrustedCheckpoint,
 	GoerliGenesisHash:  GoerliTrustedCheckpoint,
 }
+
+//创世哈希对应的检查点预言机
 
 // CheckpointOracles associates each known checkpoint oracles with the genesis hash of
 // the chain it belongs to.
@@ -56,17 +62,17 @@ var CheckpointOracles = map[common.Hash]*CheckpointOracleConfig{
 var (
 	// MainnetChainConfig is the chain parameters to run a node on the main network.
 	MainnetChainConfig = &ChainConfig{
-		ChainID:             big.NewInt(1),
-		HomesteadBlock:      big.NewInt(1_150_000),
-		DAOForkBlock:        big.NewInt(1_920_000),
-		DAOForkSupport:      true,
-		EIP150Block:         big.NewInt(2_463_000),
+		ChainID:             big.NewInt(1),         //EIP-155 提出的防止重放攻击
+		HomesteadBlock:      big.NewInt(1_150_000), //以太坊 homestead 版本硬分叉高度，因为共识机制变更
+		DAOForkBlock:        big.NewInt(1_920_000), //DAO 攻击软分叉
+		DAOForkSupport:      true,                  //是否接收 DAO 软分叉
+		EIP150Block:         big.NewInt(2_463_000), //EIP-150,为解决拒绝服务攻击，提高 IO 操作相关的 Gas。
 		EIP150Hash:          common.HexToHash("0x2086799aeebeae135c246c65021c82b4e15a2c451340993aacfd2751886514f0"),
 		EIP155Block:         big.NewInt(2_675_000),
 		EIP158Block:         big.NewInt(2_675_000),
-		ByzantiumBlock:      big.NewInt(4_370_000),
-		ConstantinopleBlock: big.NewInt(7_280_000),
-		PetersburgBlock:     big.NewInt(7_280_000),
+		ByzantiumBlock:      big.NewInt(4_370_000), //Byzantium的硬分叉
+		ConstantinopleBlock: big.NewInt(7_280_000), //君士坦丁堡版本启用区块高度，增加 EIP-145 按位移位、EIP-1014 创建时地址加盐、EIP-1052 增加提取字节码哈希值的操作码、EIP-1283 优化操作码 SSTORE 的 gas 计算方式、EIP-1234 推迟难度炸弹
+		PetersburgBlock:     big.NewInt(7_280_000), //彼得斯堡版本启用区块高度,EIP-1283 可能存在代码漏洞，因此进行硬分叉
 		IstanbulBlock:       big.NewInt(9_069_000),
 		MuirGlacierBlock:    big.NewInt(9_200_000),
 		BerlinBlock:         big.NewInt(12_244_000),
