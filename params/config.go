@@ -36,7 +36,7 @@ var (
 	GoerliGenesisHash  = common.HexToHash("0xbf7e331f7f7c1dd2e05159666b3bf8bc7a8a3a9eb1d518969eab529dd9b88c1a")
 )
 
-//不同链链对应的创世哈希对应的创世检查点映射（类比创世区块的定义）
+//不同链对应的创世哈希对应的创世检查点映射（类比创世区块的定义）
 
 // TrustedCheckpoints associates each known checkpoint with the genesis hash of
 // the chain it belongs to.
@@ -64,20 +64,20 @@ var (
 	MainnetChainConfig = &ChainConfig{
 		ChainID:             big.NewInt(1),         //EIP-155 提出的防止重放攻击
 		HomesteadBlock:      big.NewInt(1_150_000), //以太坊 homestead 版本硬分叉高度，因为共识机制变更
-		DAOForkBlock:        big.NewInt(1_920_000), //DAO 攻击软分叉
-		DAOForkSupport:      true,                  //是否接收 DAO 软分叉
+		DAOForkBlock:        big.NewInt(1_920_000), //DAO 攻击硬分叉
+		DAOForkSupport:      true,                  //客户端是否接受 DAO 硬分叉
 		EIP150Block:         big.NewInt(2_463_000), //EIP-150,为解决拒绝服务攻击，提高 IO 操作相关的 Gas。
 		EIP150Hash:          common.HexToHash("0x2086799aeebeae135c246c65021c82b4e15a2c451340993aacfd2751886514f0"),
-		EIP155Block:         big.NewInt(2_675_000),
-		EIP158Block:         big.NewInt(2_675_000),
-		ByzantiumBlock:      big.NewInt(4_370_000), //Byzantium的硬分叉
-		ConstantinopleBlock: big.NewInt(7_280_000), //君士坦丁堡版本启用区块高度，增加 EIP-145 按位移位、EIP-1014 创建时地址加盐、EIP-1052 增加提取字节码哈希值的操作码、EIP-1283 优化操作码 SSTORE 的 gas 计算方式、EIP-1234 推迟难度炸弹
-		PetersburgBlock:     big.NewInt(7_280_000), //彼得斯堡版本启用区块高度,EIP-1283 可能存在代码漏洞，因此进行硬分叉
-		IstanbulBlock:       big.NewInt(9_069_000),
-		MuirGlacierBlock:    big.NewInt(9_200_000),
-		BerlinBlock:         big.NewInt(12_244_000),
-		LondonBlock:         big.NewInt(12_965_000),
-		ArrowGlacierBlock:   big.NewInt(13_773_000),
+		EIP155Block:         big.NewInt(2_675_000),  //应用 EIP-155 的区块高度
+		EIP158Block:         big.NewInt(2_675_000),  //应用 EIP-158 的区块高度
+		ByzantiumBlock:      big.NewInt(4_370_000),  //Byzantium的硬分叉
+		ConstantinopleBlock: big.NewInt(7_280_000),  //君士坦丁堡版本启用区块高度，增加 EIP-145 按位移位、EIP-1014 创建时地址加盐、EIP-1052 增加提取字节码哈希值的操作码、EIP-1283 优化操作码 SSTORE 的 gas 计算方式、EIP-1234 推迟难度炸弹
+		PetersburgBlock:     big.NewInt(7_280_000),  //彼得斯堡版本启用区块高度,EIP-1283 可能存在代码漏洞，因此进行硬分叉
+		IstanbulBlock:       big.NewInt(9_069_000),  //Istanbul 版本启用区块
+		MuirGlacierBlock:    big.NewInt(9_200_000),  //EIP-2384 难度炸弹推迟
+		BerlinBlock:         big.NewInt(12_244_000), //Berlin 版本启用区块
+		LondonBlock:         big.NewInt(12_965_000), //London 版本启用区块
+		ArrowGlacierBlock:   big.NewInt(13_773_000), //EIP-4345 难度炸弹推迟
 		Ethash:              new(EthashConfig),
 	}
 
@@ -273,7 +273,7 @@ var (
 	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, &CliqueConfig{Period: 0, Epoch: 30000}}
 
 	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, new(EthashConfig), nil}
-	TestRules       = TestChainConfig.Rules(new(big.Int))
+	TestRules       = TestChainConfig.Rules(new(big.Int)) //测试链规则
 )
 
 // TrustedCheckpoint represents a set of post-processed trie roots (CHT and
@@ -298,16 +298,17 @@ func (c *TrustedCheckpoint) HashEqual(hash common.Hash) bool {
 // Hash returns the hash of checkpoint's four key fields(index, sectionHead, chtRoot and bloomTrieRoot).
 func (c *TrustedCheckpoint) Hash() common.Hash {
 	var sectionIndex [8]byte
-	binary.BigEndian.PutUint64(sectionIndex[:], c.SectionIndex)
+	binary.BigEndian.PutUint64(sectionIndex[:], c.SectionIndex) //将第二个参数的二进制表示每八位一组，按大端序分配到第一个参数中
 
-	w := sha3.NewLegacyKeccak256()
+	w := sha3.NewLegacyKeccak256() //兼容的 keccak256 接口，用于计算哈希
+	//写入下面四个字段，准备集散哈希
 	w.Write(sectionIndex[:])
 	w.Write(c.SectionHead[:])
 	w.Write(c.CHTRoot[:])
 	w.Write(c.BloomRoot[:])
 
 	var h common.Hash
-	w.Sum(h[:0])
+	w.Sum(h[:0]) //在空切片上用 append 完成赋值
 	return h
 }
 
@@ -358,8 +359,8 @@ type ChainConfig struct {
 	TerminalTotalDifficulty *big.Int `json:"terminalTotalDifficulty,omitempty"`
 
 	// Various consensus engines
-	Ethash *EthashConfig `json:"ethash,omitempty"`
-	Clique *CliqueConfig `json:"clique,omitempty"`
+	Ethash *EthashConfig `json:"ethash,omitempty"` //可选的配置项, Ethash 共识的 EIP 提出的更改
+	Clique *CliqueConfig `json:"clique,omitempty"` //可选的配置项, Clique 共识的 EIP 提出的更改
 }
 
 // EthashConfig is the consensus engine configs for proof-of-work based sealing.
