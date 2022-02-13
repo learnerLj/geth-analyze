@@ -413,6 +413,8 @@ func (c *ChainConfig) String() string {
 	)
 }
 
+//num 的区块高度是否已启用了这个分叉
+
 // IsHomestead returns whether num is either equal to the homestead block or greater.
 func (c *ChainConfig) IsHomestead(num *big.Int) bool {
 	return isForked(c.HomesteadBlock, num)
@@ -488,15 +490,17 @@ func (c *ChainConfig) IsTerminalPoWBlock(parentTotalDiff *big.Int, totalDiff *bi
 	return parentTotalDiff.Cmp(c.TerminalTotalDifficulty) < 0 && totalDiff.Cmp(c.TerminalTotalDifficulty) >= 0
 }
 
+//检查新的配置是否
+
 // CheckCompatible checks whether scheduled fork transitions have been imported
 // with a mismatching chain configuration.
 func (c *ChainConfig) CheckCompatible(newcfg *ChainConfig, height uint64) *ConfigCompatError {
-	bhead := new(big.Int).SetUint64(height)
+	bhead := new(big.Int).SetUint64(height) //新建 math/big 包中的 Int 类型，改变配置文件的高度
 
 	// Iterate checkCompatible to find the lowest conflict.
 	var lasterr *ConfigCompatError
 	for {
-		err := c.checkCompatible(newcfg, bhead)
+		err := c.checkCompatible(newcfg, bhead) //检查是否兼容
 		if err == nil || (lasterr != nil && err.RewindTo == lasterr.RewindTo) {
 			break
 		}
@@ -505,6 +509,8 @@ func (c *ChainConfig) CheckCompatible(newcfg *ChainConfig, height uint64) *Confi
 	}
 	return lasterr
 }
+
+//检查分叉配置的顺序，如果某个分叉产生，那么他之前的分叉也必须按顺序产生
 
 // CheckConfigForkOrder checks that we don't "skip" any forks, geth isn't pluggable enough
 // to guarantee that forks can be implemented in a different order than on official networks
@@ -515,7 +521,7 @@ func (c *ChainConfig) CheckConfigForkOrder() error {
 		optional bool // if true, the fork may be nil and next fork is still allowed
 	}
 	var lastFork fork
-	for _, cur := range []fork{
+	for _, cur := range []fork{ //数组的 range 会按顺序排列
 		{name: "homesteadBlock", block: c.HomesteadBlock},
 		{name: "daoForkBlock", block: c.DAOForkBlock, optional: true},
 		{name: "eip150Block", block: c.EIP150Block},
@@ -530,19 +536,22 @@ func (c *ChainConfig) CheckConfigForkOrder() error {
 		{name: "londonBlock", block: c.LondonBlock},
 		{name: "arrowGlacierBlock", block: c.ArrowGlacierBlock, optional: true},
 	} {
-		if lastFork.name != "" {
+		if lastFork.name != "" { //避免第一次运行
 			// Next one must be higher number
-			if lastFork.block == nil && cur.block != nil {
+			if lastFork.block == nil && cur.block != nil { //当前分叉开始，但是之前的分叉没有配置
 				return fmt.Errorf("unsupported fork ordering: %v not enabled, but %v enabled at %v",
 					lastFork.name, cur.name, cur.block)
 			}
-			if lastFork.block != nil && cur.block != nil {
+			if lastFork.block != nil && cur.block != nil { //分叉的顺序错误
 				if lastFork.block.Cmp(cur.block) > 0 {
 					return fmt.Errorf("unsupported fork ordering: %v enabled at %v, but %v enabled at %v",
 						lastFork.name, lastFork.block, cur.name, cur.block)
 				}
 			}
 		}
+
+		//如果不是可选项或者没有忽略，就记录这一项
+
 		// If it was optional and not set, then ignore it
 		if !cur.optional || cur.block != nil {
 			lastFork = cur
@@ -551,6 +560,7 @@ func (c *ChainConfig) CheckConfigForkOrder() error {
 	return nil
 }
 
+//用于保证配置文件更新后能够兼容原来的配置文件
 func (c *ChainConfig) checkCompatible(newcfg *ChainConfig, head *big.Int) *ConfigCompatError {
 	if isForkIncompatible(c.HomesteadBlock, newcfg.HomesteadBlock, head) {
 		return newCompatError("Homestead fork block", c.HomesteadBlock, newcfg.HomesteadBlock)
@@ -604,6 +614,10 @@ func (c *ChainConfig) checkCompatible(newcfg *ChainConfig, head *big.Int) *Confi
 	return nil
 }
 
+//head 高度处，s1 或者 s2 已经分叉，而且分叉的高度不相等，这时返回 true。
+//实际上，用于限制更改后新的配置文件必须兼容老的配置文件。
+//如果老的配置文件中无某个分叉，那么新的也不能有。如果老的有某个分叉，新的必须在相同的位置有。
+
 // isForkIncompatible returns true if a fork scheduled at s1 cannot be rescheduled to
 // block s2 because head is already past the fork.
 func isForkIncompatible(s1, s2, head *big.Int) bool {
@@ -632,12 +646,14 @@ func configNumEqual(x, y *big.Int) bool {
 // ChainConfig that would alter the past.
 type ConfigCompatError struct {
 	What string
+
 	// block numbers of the stored and new configurations
 	StoredConfig, NewConfig *big.Int
 	// the block number to which the local chain must be rewound to correct the error
 	RewindTo uint64
 }
 
+//storedblock 原来区块的分叉的高度，newblock 原来区块的分叉的高度
 func newCompatError(what string, storedblock, newblock *big.Int) *ConfigCompatError {
 	var rew *big.Int
 	switch {
