@@ -614,7 +614,7 @@ func (c *ChainConfig) checkCompatible(newcfg *ChainConfig, head *big.Int) *Confi
 	return nil
 }
 
-//head 高度处，s1 或者 s2 已经分叉，而且分叉的高度不相等，这时返回 true。
+//head 高度处，s1 或者 s2 已经分叉，而且分叉的高度不相等，这时返回 true，表示配置不兼容。
 //实际上，用于限制更改后新的配置文件必须兼容老的配置文件。
 //如果老的配置文件中无某个分叉，那么新的也不能有。如果老的有某个分叉，新的必须在相同的位置有。
 
@@ -647,8 +647,13 @@ func configNumEqual(x, y *big.Int) bool {
 type ConfigCompatError struct {
 	What string
 
+	//新配置和原来的配置中对应的某个分叉所在的区块高度
+
 	// block numbers of the stored and new configurations
 	StoredConfig, NewConfig *big.Int
+
+	// 需要回退到的区块高度
+
 	// the block number to which the local chain must be rewound to correct the error
 	RewindTo uint64
 }
@@ -657,9 +662,9 @@ type ConfigCompatError struct {
 func newCompatError(what string, storedblock, newblock *big.Int) *ConfigCompatError {
 	var rew *big.Int
 	switch {
-	case storedblock == nil:
+	case storedblock == nil: //原来的配置为空，表示新产生的配置
 		rew = newblock
-	case newblock == nil || storedblock.Cmp(newblock) < 0:
+	case newblock == nil || storedblock.Cmp(newblock) < 0: //原配置不为空且其中的该分叉的区块高度小
 		rew = storedblock
 	default:
 		rew = newblock
@@ -674,6 +679,8 @@ func newCompatError(what string, storedblock, newblock *big.Int) *ConfigCompatEr
 func (err *ConfigCompatError) Error() string {
 	return fmt.Sprintf("mismatching %s in database (have %d, want %d, rewindto %d)", err.What, err.StoredConfig, err.NewConfig, err.RewindTo)
 }
+
+//用于表示主要的链配置，如一些链ID、主要的分叉是否采用，但是无法在更新配置时使用
 
 // Rules wraps ChainConfig and is merely syntactic sugar or can be used for functions
 // that do not have or require information about the block.
