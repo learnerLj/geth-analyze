@@ -39,6 +39,9 @@ import (
 	"github.com/ethereum/go-ethereum/trie"
 )
 
+//gencodec 将结构体类型转成特定样式带 tag 的封装的对象，方便序列化成其他格式。-type 指定样式(默认 JSON)。-field-override 重写后面规定的结构体
+//详细见 https://pkg.go.dev/github.com/fjl/gencodec?utm_source=godoc
+
 //go:generate gencodec -type Genesis -field-override genesisSpecMarshaling -out gen_genesis.go
 //go:generate gencodec -type GenesisAccount -field-override genesisAccountMarshaling -out gen_genesis_account.go
 
@@ -47,15 +50,15 @@ var errGenesisNoConfig = errors.New("genesis has no chain configuration")
 // Genesis specifies the header fields, state of a genesis block. It also defines hard
 // fork switch-over blocks through the chain configuration.
 type Genesis struct {
-	Config     *params.ChainConfig `json:"config"`
-	Nonce      uint64              `json:"nonce"`
-	Timestamp  uint64              `json:"timestamp"`
-	ExtraData  []byte              `json:"extraData"`
-	GasLimit   uint64              `json:"gasLimit"   gencodec:"required"`
-	Difficulty *big.Int            `json:"difficulty" gencodec:"required"`
-	Mixhash    common.Hash         `json:"mixHash"`
-	Coinbase   common.Address      `json:"coinbase"`
-	Alloc      GenesisAlloc        `json:"alloc"      gencodec:"required"`
+	Config     *params.ChainConfig `json:"config"`                         //链配置
+	Nonce      uint64              `json:"nonce"`                          //随机数
+	Timestamp  uint64              `json:"timestamp"`                      //时间戳
+	ExtraData  []byte              `json:"extraData"`                      //额外数据
+	GasLimit   uint64              `json:"gasLimit"   gencodec:"required"` //区块的 gas 上限
+	Difficulty *big.Int            `json:"difficulty" gencodec:"required"` //挖矿难度
+	Mixhash    common.Hash         `json:"mixHash"`                        //用于和 Nonce 一起计算
+	Coinbase   common.Address      `json:"coinbase"`                       //初始挖矿地址
+	Alloc      GenesisAlloc        `json:"alloc"      gencodec:"required"` //初始化的账户状态配置，比如 ICO 时预先分配的资金对应的代币。
 
 	// These fields are used for consensus tests. Please don't use them
 	// in actual genesis blocks.
@@ -68,6 +71,7 @@ type Genesis struct {
 // GenesisAlloc specifies the initial state that is part of the genesis block.
 type GenesisAlloc map[common.Address]GenesisAccount
 
+// UnmarshalJSON 反序列化，解析 JSON，用于生成结构体或者映射之类的数据结构
 func (ga *GenesisAlloc) UnmarshalJSON(data []byte) error {
 	m := make(map[common.UnprefixedAddress]GenesisAccount)
 	if err := json.Unmarshal(data, &m); err != nil {
@@ -82,11 +86,11 @@ func (ga *GenesisAlloc) UnmarshalJSON(data []byte) error {
 
 // GenesisAccount is an account in the state of the genesis block.
 type GenesisAccount struct {
-	Code       []byte                      `json:"code,omitempty"`
-	Storage    map[common.Hash]common.Hash `json:"storage,omitempty"`
-	Balance    *big.Int                    `json:"balance" gencodec:"required"`
-	Nonce      uint64                      `json:"nonce,omitempty"`
-	PrivateKey []byte                      `json:"secretKey,omitempty"` // for tests
+	Code       []byte                      `json:"code,omitempty"`              //字节码
+	Storage    map[common.Hash]common.Hash `json:"storage,omitempty"`           //存储在 storage 中的位置
+	Balance    *big.Int                    `json:"balance" gencodec:"required"` //余额，单位 wei
+	Nonce      uint64                      `json:"nonce,omitempty"`             //避免签名重放攻击，参考 https://segmentfault.com/a/1190000022628999
+	PrivateKey []byte                      `json:"secretKey,omitempty"`         // for tests，一般是用于测试的私钥
 }
 
 // field type overrides for gencodec
@@ -114,6 +118,7 @@ type genesisAccountMarshaling struct {
 // unmarshaling from hex.
 type storageJSON common.Hash
 
+// UnmarshalText 对文本信息的反序列化
 func (h *storageJSON) UnmarshalText(text []byte) error {
 	text = bytes.TrimPrefix(text, []byte("0x"))
 	if len(text) > 64 {
@@ -127,6 +132,7 @@ func (h *storageJSON) UnmarshalText(text []byte) error {
 	return nil
 }
 
+// MarshalText 对文本信息的序列化
 func (h storageJSON) MarshalText() ([]byte, error) {
 	return hexutil.Bytes(h[:]).MarshalText()
 }
@@ -255,26 +261,28 @@ func (g *Genesis) configOrDefault(ghash common.Hash) *params.ChainConfig {
 	}
 }
 
+//生成创世区块，总体流程见 https://learnblockchain.cn/books/geth/part1/genesis.html#%E5%AE%89%E8%A3%85%E5%88%9B%E4%B8%96%E5%8C%BA%E5%9D%97 。
+
 // ToBlock creates the genesis block and writes state of a genesis specification
 // to the given database (or discards it if nil).
 func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 	if db == nil {
 		db = rawdb.NewMemoryDatabase()
 	}
-	statedb, err := state.New(common.Hash{}, state.NewDatabase(db), nil)
+	statedb, err := state.New(common.Hash{}, state.NewDatabase(db), nil) //父块哈希为空，创建 state 对象
 	if err != nil {
 		panic(err)
 	}
-	for addr, account := range g.Alloc {
-		statedb.AddBalance(addr, account.Balance)
-		statedb.SetCode(addr, account.Code)
-		statedb.SetNonce(addr, account.Nonce)
+	for addr, account := range g.Alloc { //写入配置中的预分配的账户(外部账户或者合约账户）
+		statedb.AddBalance(addr, account.Balance) //写入余额
+		statedb.SetCode(addr, account.Code)       //写入余额字节码
+		statedb.SetNonce(addr, account.Nonce)     //写入 Nonce
 		for key, value := range account.Storage {
-			statedb.SetState(addr, key, value)
+			statedb.SetState(addr, key, value) //设置状态
 		}
 	}
-	root := statedb.IntermediateRoot(false)
-	head := &types.Header{
+	root := statedb.IntermediateRoot(false) //计算 state 对象的 Merkle 树根 StateRoot
+	head := &types.Header{                  //创建区块头，字段和创世区块配置类似
 		Number:     new(big.Int).SetUint64(g.Number),
 		Nonce:      types.EncodeNonce(g.Nonce),
 		Time:       g.Timestamp,
@@ -288,6 +296,7 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 		Coinbase:   g.Coinbase,
 		Root:       root,
 	}
+	//一系列参数初始化
 	if g.GasLimit == 0 {
 		head.GasLimit = params.GenesisGasLimit
 	}
@@ -301,8 +310,8 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 			head.BaseFee = new(big.Int).SetUint64(params.InitialBaseFee)
 		}
 	}
-	statedb.Commit(false)
-	statedb.Database().TrieDB().Commit(root, true, nil)
+	statedb.Commit(false)                               //将 state 对象 暂存在 Trie 的数据存储空间
+	statedb.Database().TrieDB().Commit(root, true, nil) //将 Trie 的数据更新到 状态数据库 db 中
 
 	return types.NewBlock(head, nil, nil, nil, trie.NewStackTrie(nil))
 }
