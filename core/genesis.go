@@ -166,58 +166,68 @@ func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig
 
 func SetupGenesisBlockWithOverride(db ethdb.Database, genesis *Genesis, overrideArrowGlacier *big.Int) (*params.ChainConfig, common.Hash, error) {
 	if genesis != nil && genesis.Config == nil {
-		return params.AllEthashProtocolChanges, common.Hash{}, errGenesisNoConfig
+		return params.AllEthashProtocolChanges, common.Hash{}, errGenesisNoConfig //返回默认的 ethash 的链配置
 	}
 	// Just commit the new block if there is no stored genesis block.
-	stored := rawdb.ReadCanonicalHash(db, 0)
+	stored := rawdb.ReadCanonicalHash(db, 0) //获取 0 高度的区块哈希
+
+	//如果 db 无创世区块
 	if (stored == common.Hash{}) {
-		if genesis == nil {
+		if genesis == nil { //并且将更新或者写入的创世区块配置为空
 			log.Info("Writing default main-net genesis block")
-			genesis = DefaultGenesisBlock()
+			genesis = DefaultGenesisBlock() //默认采用主网的配置
 		} else {
 			log.Info("Writing custom genesis block")
 		}
-		block, err := genesis.Commit(db)
+		block, err := genesis.Commit(db) //写入创世区块
 		if err != nil {
 			return genesis.Config, common.Hash{}, err
 		}
 		return genesis.Config, block.Hash(), nil
 	}
+
+	//已有创世区块，但是对应的 state 对象丢失
+
 	// We have the genesis block in database(perhaps in ancient database)
 	// but the corresponding state is missing.
-	header := rawdb.ReadHeader(db, stored, 0)
-	if _, err := state.New(header.Root, state.NewDatabaseWithConfig(db, nil), nil); err != nil {
-		if genesis == nil {
-			genesis = DefaultGenesisBlock()
+	header := rawdb.ReadHeader(db, stored, 0)                                                    //数据库已有创世区块，通过区块哈希获取 0 高度的区块头
+	if _, err := state.New(header.Root, state.NewDatabaseWithConfig(db, nil), nil); err != nil { //创建对应 state 对象
+		if genesis == nil { //数据库中有已有创世区块且输入的更新的配置为空
+			genesis = DefaultGenesisBlock() //仍然采用原来主网的配置
 		}
 		// Ensure the stored genesis matches with the given one.
-		hash := genesis.ToBlock(nil).Hash()
-		if hash != stored {
+		hash := genesis.ToBlock(nil).Hash() //模拟将配置写入数据库（未实际写入），并且返回区块头哈希
+		if hash != stored {                 //修改后的创世区块哈希值改变，不兼容
 			return genesis.Config, hash, &GenesisMismatchError{stored, hash}
 		}
-		block, err := genesis.Commit(db)
+		block, err := genesis.Commit(db) //写入创世区块
 		if err != nil {
 			return genesis.Config, hash, err
 		}
 		return genesis.Config, block.Hash(), nil
 	}
+
+	//已有创世区块且对应的 state 对象存在
+
 	// Check whether the genesis block is already written.
-	if genesis != nil {
+	if genesis != nil { //检查兼容性，模拟修改，区块哈希不得改变
 		hash := genesis.ToBlock(nil).Hash()
 		if hash != stored {
 			return genesis.Config, hash, &GenesisMismatchError{stored, hash}
 		}
 	}
 	// Get the existing chain configuration.
-	newcfg := genesis.configOrDefault(stored)
+	newcfg := genesis.configOrDefault(stored) //获取新配置，如果新配置为空，那么返回主网或者测试网的默认配置
 	if overrideArrowGlacier != nil {
 		newcfg.ArrowGlacierBlock = overrideArrowGlacier
 	}
-	if err := newcfg.CheckConfigForkOrder(); err != nil {
+	if err := newcfg.CheckConfigForkOrder(); err != nil { //检查新配置分叉的顺序是否合法
 		return newcfg, common.Hash{}, err
 	}
+
+	//返回创世区块的原来的配置
 	storedcfg := rawdb.ReadChainConfig(db, stored)
-	if storedcfg == nil {
+	if storedcfg == nil { //异常，创世区块存在，但是它的配置为空。
 		log.Warn("Found genesis block without chain config")
 		rawdb.WriteChainConfig(db, stored, newcfg)
 		return newcfg, stored, nil
@@ -225,15 +235,17 @@ func SetupGenesisBlockWithOverride(db ethdb.Database, genesis *Genesis, override
 	// Special case: don't change the existing config of a non-mainnet chain if no new
 	// config is supplied. These chains would get AllProtocolChanges (and a compat error)
 	// if we just continued here.
-	if genesis == nil && stored != params.MainnetGenesisHash {
+	if genesis == nil && stored != params.MainnetGenesisHash { //只有更新的配置不为空时，才能更新其他测试网的配置
 		return storedcfg, stored, nil
 	}
 	// Check config compatibility and write the config. Compatibility errors
 	// are returned to the caller unless we're already at block zero.
-	height := rawdb.ReadHeaderNumber(db, rawdb.ReadHeadHeaderHash(db))
+	height := rawdb.ReadHeaderNumber(db, rawdb.ReadHeadHeaderHash(db)) //更新前获取区块高度，以检查新配置的兼容性
 	if height == nil {
 		return newcfg, stored, fmt.Errorf("missing block number for head header hash")
 	}
+
+	//检查新配置的兼容性
 	compatErr := storedcfg.CheckCompatible(newcfg, *height)
 	if compatErr != nil && *height != 0 && compatErr.RewindTo != 0 {
 		return newcfg, stored, compatErr
@@ -261,7 +273,7 @@ func (g *Genesis) configOrDefault(ghash common.Hash) *params.ChainConfig {
 	}
 }
 
-//生成创世区块，总体流程见 https://learnblockchain.cn/books/geth/part1/genesis.html#%E5%AE%89%E8%A3%85%E5%88%9B%E4%B8%96%E5%8C%BA%E5%9D%97 。
+//生成创世区块对象，总体流程见 https://learnblockchain.cn/books/geth/part1/genesis.html#%E5%AE%89%E8%A3%85%E5%88%9B%E4%B8%96%E5%8C%BA%E5%9D%97 。
 
 // ToBlock creates the genesis block and writes state of a genesis specification
 // to the given database (or discards it if nil).
@@ -319,10 +331,12 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 // Commit writes the block and state of a genesis specification to the database.
 // The block is committed as the canonical head block.
 func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
-	block := g.ToBlock(db)
-	if block.Number().Sign() != 0 {
+	block := g.ToBlock(db)          //根据配置文件生成区块，并写入数据库
+	if block.Number().Sign() != 0 { //区块高度必须为 0
 		return nil, errors.New("can't commit genesis block with number > 0")
 	}
+	//特殊情况，如果链配置为空，那么新建从 0 高度就采用了全部 EIP 的链配置
+	//一般而言，在 commit 之前都会检查，较难发生，这里用于测试
 	config := g.Config
 	if config == nil {
 		config = params.AllEthashProtocolChanges
@@ -333,6 +347,8 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	if config.Clique != nil && len(block.Extra()) == 0 {
 		return nil, errors.New("can't start clique chain without signers")
 	}
+
+	//写入配置
 	rawdb.WriteTd(db, block.Hash(), block.NumberU64(), block.Difficulty())
 	rawdb.WriteBlock(db, block)
 	rawdb.WriteReceipts(db, block.Hash(), block.NumberU64(), nil)
@@ -427,8 +443,8 @@ func DefaultSepoliaGenesisBlock() *Genesis {
 // DeveloperGenesisBlock returns the 'geth --dev' genesis block.
 func DeveloperGenesisBlock(period uint64, gasLimit uint64, faucet common.Address) *Genesis {
 	// Override the default period to the user requested one
-	config := *params.AllCliqueProtocolChanges
-	config.Clique = &params.CliqueConfig{
+	config := *params.AllCliqueProtocolChanges //geth 的测试网络一开始都应用了所有 EIP 更改
+	config.Clique = &params.CliqueConfig{      //geth 的测试网络采用 POS
 		Period: period,
 		Epoch:  config.Clique.Epoch,
 	}
@@ -440,21 +456,22 @@ func DeveloperGenesisBlock(period uint64, gasLimit uint64, faucet common.Address
 		GasLimit:   gasLimit,
 		BaseFee:    big.NewInt(params.InitialBaseFee),
 		Difficulty: big.NewInt(1),
-		Alloc: map[common.Address]GenesisAccount{
-			common.BytesToAddress([]byte{1}): {Balance: big.NewInt(1)}, // ECRecover
-			common.BytesToAddress([]byte{2}): {Balance: big.NewInt(1)}, // SHA256
-			common.BytesToAddress([]byte{3}): {Balance: big.NewInt(1)}, // RIPEMD
-			common.BytesToAddress([]byte{4}): {Balance: big.NewInt(1)}, // Identity
-			common.BytesToAddress([]byte{5}): {Balance: big.NewInt(1)}, // ModExp
-			common.BytesToAddress([]byte{6}): {Balance: big.NewInt(1)}, // ECAdd
-			common.BytesToAddress([]byte{7}): {Balance: big.NewInt(1)}, // ECScalarMul
-			common.BytesToAddress([]byte{8}): {Balance: big.NewInt(1)}, // ECPairing
-			common.BytesToAddress([]byte{9}): {Balance: big.NewInt(1)}, // BLAKE2b
-			faucet:                           {Balance: new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(9))},
+		Alloc: map[common.Address]GenesisAccount{ //下面预分配的是几个特殊的预编译的合约，里面有一些函数可用
+			common.BytesToAddress([]byte{1}): {Balance: big.NewInt(1)},                                                         // ECRecover
+			common.BytesToAddress([]byte{2}): {Balance: big.NewInt(1)},                                                         // SHA256
+			common.BytesToAddress([]byte{3}): {Balance: big.NewInt(1)},                                                         // RIPEMD
+			common.BytesToAddress([]byte{4}): {Balance: big.NewInt(1)},                                                         // Identity
+			common.BytesToAddress([]byte{5}): {Balance: big.NewInt(1)},                                                         // ModExp
+			common.BytesToAddress([]byte{6}): {Balance: big.NewInt(1)},                                                         // ECAdd
+			common.BytesToAddress([]byte{7}): {Balance: big.NewInt(1)},                                                         // ECScalarMul
+			common.BytesToAddress([]byte{8}): {Balance: big.NewInt(1)},                                                         // ECPairing
+			common.BytesToAddress([]byte{9}): {Balance: big.NewInt(1)},                                                         // BLAKE2b
+			faucet:                           {Balance: new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(9))}, //测试用的账户
 		},
 	}
 }
 
+//将 rlp 序列化的数据反序列化，生成预分配的账户和余额
 func decodePrealloc(data string) GenesisAlloc {
 	var p []struct{ Addr, Balance *big.Int }
 	if err := rlp.NewStream(strings.NewReader(data), 0).Decode(&p); err != nil {

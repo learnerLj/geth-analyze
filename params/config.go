@@ -495,7 +495,7 @@ func (c *ChainConfig) IsTerminalPoWBlock(parentTotalDiff *big.Int, totalDiff *bi
 // CheckCompatible checks whether scheduled fork transitions have been imported
 // with a mismatching chain configuration.
 func (c *ChainConfig) CheckCompatible(newcfg *ChainConfig, height uint64) *ConfigCompatError {
-	bhead := new(big.Int).SetUint64(height) //新建 math/big 包中的 Int 类型，改变配置文件的高度
+	bhead := new(big.Int).SetUint64(height) //新建 math/big 包中的 Int 类型
 
 	// Iterate checkCompatible to find the lowest conflict.
 	var lasterr *ConfigCompatError
