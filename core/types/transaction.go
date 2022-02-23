@@ -43,8 +43,8 @@ var (
 // Transaction types.
 const (
 	LegacyTxType     = iota //传统交易
-	AccessListTxType        //
-	DynamicFeeTxType        //动态 fee
+	AccessListTxType        //EIP-2930 定义的访问列表
+	DynamicFeeTxType        //EIP-1559 定义的动态交易费
 )
 
 // Transaction is an Ethereum transaction.
@@ -54,7 +54,8 @@ type Transaction struct {
 	time time.Time // Time first seen locally (spam avoidance)
 
 	/*atomic 是 Golang 中底层硬件的原子操作的封装，可以提高并发的效率
-	atomic.Value 是容器，用来“原子地”存储（Store）和加载（Load）任意类型的值
+	atomic.Value 是容器，用来“原子地”存储（Store）和加载（Load）任意类型的值。
+
 	一个或者多个操作在 CPU 执行的过程中不被中断的特性，称为原子性，
 	对外表现成一个不可分割的整体，他们要么都执行，要么都不执行，外界不会看到他们只执行到一半的状态。
 	更多见：https://studygolang.com/articles/23242
@@ -89,8 +90,8 @@ type TxData interface {
 	data() []byte
 	gas() uint64
 	gasPrice() *big.Int
-	gasTipCap() *big.Int //
-	gasFeeCap() *big.Int
+	gasTipCap() *big.Int // EIP-1559 单位 gas 最大超过基础费用的溢价
+	gasFeeCap() *big.Int //EIP-1559 单位 gas 的最大价格
 	value() *big.Int
 	nonce() uint64
 	to() *common.Address
@@ -101,26 +102,30 @@ type TxData interface {
 
 // EncodeRLP implements rlp.Encoder
 func (tx *Transaction) EncodeRLP(w io.Writer) error {
+	//对于传统的无类型的交易，直接编码 data 字段就可以了
 	if tx.Type() == LegacyTxType {
 		return rlp.Encode(w, tx.inner) //第二个参数编码后写入 rlp 缓冲区
 	}
 
-	// EIP-2718 将交易类型封装到了交易对象中，可以方便的处理对应操作，
-	//避免应用层中复杂的功能集成和服务端中的匹配交易所有字段的不必要消耗
+	// EIP-2718 将交易类型封装到了交易对象中，可以方便地处理对应操作，
+	//减少因匹配交易所有字段造成的不必要消耗
 
 	// It's an EIP-2718 typed TX envelope.
 	buf := encodeBufferPool.Get().(*bytes.Buffer)
 	defer encodeBufferPool.Put(buf)
 	buf.Reset()
+
+	//序列化后存储在 buf 中
 	if err := tx.encodeTyped(buf); err != nil {
 		return err
 	}
+	//不是很清楚，为什么 buf 编码后还要再次编码？可能是为了保证向后兼容性再进行了一次封装
 	return rlp.Encode(w, buf.Bytes())
 }
 
 // encodeTyped writes the canonical encoding of a typed transaction to w.
 func (tx *Transaction) encodeTyped(w *bytes.Buffer) error {
-	w.WriteByte(tx.Type())
+	w.WriteByte(tx.Type()) //先写入类型，第一个字节
 	return rlp.Encode(w, tx.inner)
 }
 
@@ -251,9 +256,11 @@ func isProtectedV(V *big.Int) bool {
 	return true
 }
 
+//是否开启了防止重放攻击
+
 // Protected says whether the transaction is replay-protected.
 func (tx *Transaction) Protected() bool {
-	switch tx := tx.inner.(type) {
+	switch tx := tx.inner.(type) { //接口类型断言
 	case *LegacyTx:
 		return tx.V != nil && isProtectedV(tx.V)
 	default:
