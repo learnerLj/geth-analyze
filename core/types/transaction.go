@@ -221,6 +221,7 @@ func (tx *Transaction) setDecoded(inner TxData, size int) {
 	}
 }
 
+//检查签名的合法性
 func sanityCheckSignature(v *big.Int, r *big.Int, s *big.Int, maybeProtected bool) error {
 	if isProtectedV(v) && !maybeProtected {
 		return ErrUnexpectedProtection
@@ -247,6 +248,7 @@ func sanityCheckSignature(v *big.Int, r *big.Int, s *big.Int, maybeProtected boo
 	return nil
 }
 
+//是否开启了防止重放攻击
 func isProtectedV(V *big.Int) bool {
 	if V.BitLen() <= 8 {
 		v := V.Uint64()
@@ -255,8 +257,6 @@ func isProtectedV(V *big.Int) bool {
 	// anything not 27 or 28 is considered protected
 	return true
 }
-
-//是否开启了防止重放攻击
 
 // Protected says whether the transaction is replay-protected.
 func (tx *Transaction) Protected() bool {
@@ -343,6 +343,8 @@ func (tx *Transaction) GasTipCapIntCmp(other *big.Int) int {
 	return tx.inner.gasTipCap().Cmp(other)
 }
 
+//EIP-1559 的内容，可见 https://www.jinse.com/blockchain/872956.html ，这是小费值
+
 // EffectiveGasTip returns the effective miner gasTipCap for the given base fee.
 // Note: if the effective gasTipCap is negative, this method returns both error
 // the actual negative value, _and_ ErrGasFeeCapTooLow
@@ -352,9 +354,12 @@ func (tx *Transaction) EffectiveGasTip(baseFee *big.Int) (*big.Int, error) {
 	}
 	var err error
 	gasFeeCap := tx.GasFeeCap()
+
+	//给出的建议消费不得
 	if gasFeeCap.Cmp(baseFee) == -1 {
 		err = ErrGasFeeCapTooLow
 	}
+	// 最大值 - 基础费和消费最大值中的小者
 	return math.BigMin(tx.GasTipCap(), gasFeeCap.Sub(gasFeeCap, baseFee)), err
 }
 
@@ -389,6 +394,7 @@ func (tx *Transaction) Hash() common.Hash {
 
 	var h common.Hash
 	if tx.Type() == LegacyTxType {
+		//根据 Txdata 计算交易哈希
 		h = rlpHash(tx.inner)
 	} else {
 		h = prefixedRlpHash(tx.Type(), tx.inner)
@@ -456,6 +462,8 @@ func TxDifference(a, b Transactions) Transactions {
 
 	return keep
 }
+
+//根据随机数排序后的某个账户发送的交易
 
 // TxByNonce implements the sort interface to allow sorting a list of transactions
 // by their nonces. This is usually only useful for sorting transactions from a
