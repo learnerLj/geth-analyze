@@ -42,15 +42,25 @@ var (
 
 // Transaction types.
 const (
-	LegacyTxType = iota
-	AccessListTxType
-	DynamicFeeTxType
+	LegacyTxType     = iota //传统交易
+	AccessListTxType        //
+	DynamicFeeTxType        //动态 fee
 )
 
 // Transaction is an Ethereum transaction.
 type Transaction struct {
-	inner TxData    // Consensus contents of a transaction
-	time  time.Time // Time first seen locally (spam avoidance)
+	inner TxData // Consensus contents of a transaction
+	//time 包的特点是时间分成显示和计算两部分
+	time time.Time // Time first seen locally (spam avoidance)
+
+	/*atomic 是 Golang 中底层硬件的原子操作的封装，可以提高并发的效率
+	atomic.Value 是容器，用来“原子地”存储（Store）和加载（Load）任意类型的值
+	一个或者多个操作在 CPU 执行的过程中不被中断的特性，称为原子性，
+	对外表现成一个不可分割的整体，他们要么都执行，要么都不执行，外界不会看到他们只执行到一半的状态。
+	更多见：https://studygolang.com/articles/23242
+	*/
+
+	// 使用频次高且CPU计算量大，因此下面缓存下面三个
 
 	// caches
 	hash atomic.Value
@@ -61,7 +71,9 @@ type Transaction struct {
 // NewTx creates a new transaction.
 func NewTx(inner TxData) *Transaction {
 	tx := new(Transaction)
-	tx.setDecoded(inner.copy(), 0)
+
+	//深拷贝、引用传递，并且会初始化 TxData 的一堆东西
+	tx.setDecoded(inner.copy(), 0) //设置 inner，time，size
 	return tx
 }
 
@@ -77,7 +89,7 @@ type TxData interface {
 	data() []byte
 	gas() uint64
 	gasPrice() *big.Int
-	gasTipCap() *big.Int
+	gasTipCap() *big.Int //
 	gasFeeCap() *big.Int
 	value() *big.Int
 	nonce() uint64
@@ -90,8 +102,12 @@ type TxData interface {
 // EncodeRLP implements rlp.Encoder
 func (tx *Transaction) EncodeRLP(w io.Writer) error {
 	if tx.Type() == LegacyTxType {
-		return rlp.Encode(w, tx.inner)
+		return rlp.Encode(w, tx.inner) //第二个参数编码后写入 rlp 缓冲区
 	}
+
+	// EIP-2718 将交易类型封装到了交易对象中，可以方便的处理对应操作，
+	//避免应用层中复杂的功能集成和服务端中的匹配交易所有字段的不必要消耗
+
 	// It's an EIP-2718 typed TX envelope.
 	buf := encodeBufferPool.Get().(*bytes.Buffer)
 	defer encodeBufferPool.Put(buf)
