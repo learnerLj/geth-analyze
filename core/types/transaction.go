@@ -119,7 +119,7 @@ func (tx *Transaction) EncodeRLP(w io.Writer) error {
 	if err := tx.encodeTyped(buf); err != nil {
 		return err
 	}
-	//不是很清楚，为什么 buf 编码后还要再次编码？可能是为了保证向后兼容性再进行了一次封装
+	//为了保证向后兼容性再进行了一次封装，
 	return rlp.Encode(w, buf.Bytes())
 }
 
@@ -559,9 +559,9 @@ func NewTransactionsByPriceAndNonce(signer Signer, txs map[common.Address]Transa
 			continue
 		}
 		heads = append(heads, wrapped)
-		txs[from] = accTxs[1:]
+		txs[from] = accTxs[1:] //更新账户的交易列表
 	}
-	heap.Init(&heads) //堆排序
+	heap.Init(&heads) //堆排序，小堆
 
 	// Assemble and return the transaction set
 	return &TransactionsByPriceAndNonce{
@@ -572,7 +572,7 @@ func NewTransactionsByPriceAndNonce(signer Signer, txs map[common.Address]Transa
 	}
 }
 
-//Nonce 和 矿工费排序后，获取 head 中费用最高的交易，叫做 peek
+//Nonce 和 矿工费排序后，获取 heads(每个地址的 nonce 在前面的交易) 中矿工费最小的交易
 
 // Peek returns the next transaction by price.
 func (t *TransactionsByPriceAndNonce) Peek() *Transaction {
@@ -582,13 +582,16 @@ func (t *TransactionsByPriceAndNonce) Peek() *Transaction {
 	return t.heads[0].tx
 }
 
+//用矿工费最高的交易的来源地址上的交易代替 peek
+
 // Shift replaces the current best head with the next one from the same account.
 func (t *TransactionsByPriceAndNonce) Shift() {
-	acc, _ := Sender(t.signer, t.heads[0].tx)
+	acc, _ := Sender(t.signer, t.heads[0].tx) //根据签名和交易获取的地址
 	if txs, ok := t.txs[acc]; ok && len(txs) > 0 {
+		//封装交易和矿工费，取出矿工费最高的交易
 		if wrapped, err := NewTxWithMinerFee(txs[0], t.baseFee); err == nil {
 			t.heads[0], t.txs[acc] = wrapped, txs[1:]
-			heap.Fix(&t.heads, 0)
+			heap.Fix(&t.heads, 0) //Fix 在索引 i 处的元素更改其值后重新建立堆排序。
 			return
 		}
 	}
@@ -634,6 +637,8 @@ func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *b
 		isFake:     isFake,
 	}
 }
+
+//从交易生成 Massage 对象
 
 // AsMessage returns the transaction as a core.Message.
 func (tx *Transaction) AsMessage(s Signer, baseFee *big.Int) (Message, error) {
