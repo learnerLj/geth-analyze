@@ -406,9 +406,11 @@ func (tx *Transaction) Hash() common.Hash {
 // Size returns the true RLP encoded storage size of the transaction, either by
 // encoding and returning it, or returning a previously cached value.
 func (tx *Transaction) Size() common.StorageSize {
+	//如果 size 已经存在，
 	if size := tx.size.Load(); size != nil {
 		return size.(common.StorageSize)
 	}
+	//size 不存在，返回编码后的长度
 	c := writeCounter(0)
 	rlp.Encode(&c, &tx.inner)
 	tx.size.Store(common.StorageSize(c))
@@ -450,11 +452,13 @@ func TxDifference(a, b Transactions) Transactions {
 	keep := make(Transactions, 0, len(a))
 
 	remove := make(map[common.Hash]struct{})
+	//记录 b 中的交易
 	for _, tx := range b {
 		remove[tx.Hash()] = struct{}{}
 	}
 
 	for _, tx := range a {
+		//a 中的交易 tx 不在 b 中，就添加在 keep 中
 		if _, ok := remove[tx.Hash()]; !ok {
 			keep = append(keep, tx)
 		}
@@ -463,7 +467,7 @@ func TxDifference(a, b Transactions) Transactions {
 	return keep
 }
 
-//根据随机数排序后的某个账户发送的交易
+//根据 Nonce 排序后的某个账户发送的交易
 
 // TxByNonce implements the sort interface to allow sorting a list of transactions
 // by their nonces. This is usually only useful for sorting transactions from a
@@ -522,6 +526,9 @@ func (s *TxByPriceAndTime) Pop() interface{} {
 	return x
 }
 
+//排序规则，首先对单个账户的 Nonce 选其最小的，然后这样的交易叫做 head，
+//然后对 head 按照矿工费堆排序
+
 // TransactionsByPriceAndNonce represents a set of transactions that can return
 // transactions in a profit-maximizing sorted order, while supporting removing
 // entire batches of transactions for non-executable accounts.
@@ -532,6 +539,9 @@ type TransactionsByPriceAndNonce struct {
 	baseFee *big.Int                        // Current base fee
 }
 
+//大量的交易，按照地址分成大量的个人交易集，这个交易集按照 nonce 排序，
+//提取出每个地址的第一个交易，按照矿工费再排序
+
 // NewTransactionsByPriceAndNonce creates a transaction set that can retrieve
 // price sorted transactions in a nonce-honouring way.
 //
@@ -541,17 +551,17 @@ func NewTransactionsByPriceAndNonce(signer Signer, txs map[common.Address]Transa
 	// Initialize a price and received time based heap with the head transactions
 	heads := make(TxByPriceAndTime, 0, len(txs))
 	for from, accTxs := range txs {
-		acc, _ := Sender(signer, accTxs[0])
-		wrapped, err := NewTxWithMinerFee(accTxs[0], baseFee)
+		acc, _ := Sender(signer, accTxs[0])                   //通过签名和对应交易恢复地址
+		wrapped, err := NewTxWithMinerFee(accTxs[0], baseFee) //带矿工费的交易
 		// Remove transaction if sender doesn't match from, or if wrapping fails.
 		if acc != from || err != nil {
-			delete(txs, from)
+			delete(txs, from) //删除 map 中对应 Key
 			continue
 		}
 		heads = append(heads, wrapped)
 		txs[from] = accTxs[1:]
 	}
-	heap.Init(&heads)
+	heap.Init(&heads) //堆排序
 
 	// Assemble and return the transaction set
 	return &TransactionsByPriceAndNonce{
@@ -561,6 +571,8 @@ func NewTransactionsByPriceAndNonce(signer Signer, txs map[common.Address]Transa
 		baseFee: baseFee,
 	}
 }
+
+//Nonce 和 矿工费排序后，获取 head 中费用最高的交易，叫做 peek
 
 // Peek returns the next transaction by price.
 func (t *TransactionsByPriceAndNonce) Peek() *Transaction {
