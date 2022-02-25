@@ -355,7 +355,6 @@ func (tx *Transaction) EffectiveGasTip(baseFee *big.Int) (*big.Int, error) {
 	var err error
 	gasFeeCap := tx.GasFeeCap()
 
-	//给出的建议消费不得
 	if gasFeeCap.Cmp(baseFee) == -1 {
 		err = ErrGasFeeCapTooLow
 	}
@@ -582,20 +581,20 @@ func (t *TransactionsByPriceAndNonce) Peek() *Transaction {
 	return t.heads[0].tx
 }
 
-//用矿工费最高的交易的来源地址上的交易代替 peek
+//用矿工费最小的交易的来源地址上的交易代替 peek
 
 // Shift replaces the current best head with the next one from the same account.
 func (t *TransactionsByPriceAndNonce) Shift() {
 	acc, _ := Sender(t.signer, t.heads[0].tx) //根据签名和交易获取的地址
 	if txs, ok := t.txs[acc]; ok && len(txs) > 0 {
-		//封装交易和矿工费，取出矿工费最高的交易
+		//封装交易和矿工费，取出矿工费最小的交易
 		if wrapped, err := NewTxWithMinerFee(txs[0], t.baseFee); err == nil {
 			t.heads[0], t.txs[acc] = wrapped, txs[1:]
 			heap.Fix(&t.heads, 0) //Fix 在索引 i 处的元素更改其值后重新建立堆排序。
 			return
 		}
 	}
-	heap.Pop(&t.heads)
+	heap.Pop(&t.heads) //删除第一个元素
 }
 
 // Pop removes the best transaction, *not* replacing it with the next one from
