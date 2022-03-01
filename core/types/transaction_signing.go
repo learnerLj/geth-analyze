@@ -36,6 +36,8 @@ type sigCache struct {
 	from   common.Address
 }
 
+//初步创建签名器 Signer，不同的链的签名器有区别
+
 // MakeSigner returns a Signer based on the given chain config and block number.
 func MakeSigner(config *params.ChainConfig, blockNumber *big.Int) Signer {
 	var signer Signer
@@ -53,6 +55,8 @@ func MakeSigner(config *params.ChainConfig, blockNumber *big.Int) Signer {
 	}
 	return signer
 }
+
+//因为未知区块高度，那么不知道引入哪一种 签名器，于是根据配置中是否定义分叉，选择最具兼容性的 Signer
 
 // LatestSigner returns the 'most permissive' Signer available for the given chain
 // configuration. Specifically, this enables support of EIP-155 replay protection and
@@ -76,6 +80,8 @@ func LatestSigner(config *params.ChainConfig) Signer {
 	return HomesteadSigner{}
 }
 
+//返回最新的签名器
+
 // LatestSignerForChainID returns the 'most permissive' Signer available. Specifically,
 // this enables support for EIP-155 replay protection and all implemented EIP-2718
 // transaction types if chainID is non-nil.
@@ -90,6 +96,8 @@ func LatestSignerForChainID(chainID *big.Int) Signer {
 	return NewLondonSigner(chainID)
 }
 
+//私钥+签名器接口实现对交易的签名
+
 // SignTx signs the transaction using the given signer and private key.
 func SignTx(tx *Transaction, s Signer, prv *ecdsa.PrivateKey) (*Transaction, error) {
 	h := s.Hash(tx)
@@ -99,6 +107,8 @@ func SignTx(tx *Transaction, s Signer, prv *ecdsa.PrivateKey) (*Transaction, err
 	}
 	return tx.WithSignature(s, sig)
 }
+
+// 直接从交易数据和私钥生成签名后的交易
 
 // SignNewTx creates a transaction and signs it.
 func SignNewTx(prv *ecdsa.PrivateKey, s Signer, txdata TxData) (*Transaction, error) {
@@ -121,6 +131,8 @@ func MustSignNewTx(prv *ecdsa.PrivateKey, s Signer, txdata TxData) *Transaction 
 	return tx
 }
 
+//根据签名和交易返回发送者地址
+
 // Sender returns the address derived from the signature (V, R, S) using secp256k1
 // elliptic curve and an error if it failed deriving or upon an incorrect
 // signature.
@@ -138,7 +150,7 @@ func Sender(signer Signer, tx *Transaction) (common.Address, error) {
 			return sigCache.from, nil
 		}
 	}
-
+	//原来没有缓存发送者，或者缓存的发送者地址和当前的不同，则更新缓存的地址
 	addr, err := signer.Sender(tx)
 	if err != nil {
 		return common.Address{}, err
@@ -146,6 +158,8 @@ func Sender(signer Signer, tx *Transaction) (common.Address, error) {
 	tx.from.Store(sigCache{signer: signer, from: addr})
 	return addr, nil
 }
+
+//签名器，包含了签名的方法的接口
 
 // Signer encapsulates transaction signature handling. The name of this type is slightly
 // misleading because Signers don't actually sign, they're just for validating and
@@ -171,6 +185,8 @@ type Signer interface {
 }
 
 type londonSigner struct{ eip2930Signer }
+
+//伦敦版本的签名器是多个 EIP 结合后产生的
 
 // NewLondonSigner returns a signer that accepts
 // - EIP-1559 dynamic fee transactions
