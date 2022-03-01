@@ -36,6 +36,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 )
 
+//不懂这些参数的意义
 const (
 	// chainHeadChanSize is the size of channel listening to ChainHeadEvent.
 	chainHeadChanSize = 10
@@ -56,17 +57,22 @@ const (
 var (
 	// ErrAlreadyKnown is returned if the transactions is already contained
 	// within the pool.
+
+	//交易池中已经存在的 错误处理
 	ErrAlreadyKnown = errors.New("already known")
 
 	// ErrInvalidSender is returned if the transaction contains an invalid signature.
+	//无效签名的 错误处理
 	ErrInvalidSender = errors.New("invalid sender")
 
 	// ErrUnderpriced is returned if a transaction's gas price is below the minimum
 	// configured for the transaction pool.
+	//定价过低
 	ErrUnderpriced = errors.New("transaction underpriced")
 
 	// ErrTxPoolOverflow is returned if the transaction pool is full and can't accpet
 	// another remote transaction.
+	//交易池已经满了
 	ErrTxPoolOverflow = errors.New("txpool is full")
 
 	// ErrReplaceUnderpriced is returned if a transaction is attempted to be replaced
@@ -94,12 +100,15 @@ var (
 
 var (
 	// Metrics for the pending pool
+	//待处理池
 	pendingDiscardMeter   = metrics.NewRegisteredMeter("txpool/pending/discard", nil)
 	pendingReplaceMeter   = metrics.NewRegisteredMeter("txpool/pending/replace", nil)
 	pendingRateLimitMeter = metrics.NewRegisteredMeter("txpool/pending/ratelimit", nil) // Dropped due to rate limiting
 	pendingNofundsMeter   = metrics.NewRegisteredMeter("txpool/pending/nofunds", nil)   // Dropped due to out-of-funds
 
 	// Metrics for the queued pool
+
+	//排队池
 	queuedDiscardMeter   = metrics.NewRegisteredMeter("txpool/queued/discard", nil)
 	queuedReplaceMeter   = metrics.NewRegisteredMeter("txpool/queued/replace", nil)
 	queuedRateLimitMeter = metrics.NewRegisteredMeter("txpool/queued/ratelimit", nil) // Dropped due to rate limiting
@@ -141,6 +150,7 @@ const (
 
 // blockChain provides the state of blockchain and current gas limit to do
 // some pre checks in tx pool and event subscribers.
+//这个接口的定义尚未可知目的
 type blockChain interface {
 	CurrentBlock() *types.Block
 	GetBlock(hash common.Hash, number uint64) *types.Block
@@ -155,35 +165,35 @@ type blockChain interface {
 type TxPoolConfig struct {
 	//定义了一组视为local交易的账户地址。
 	//任何来自此清单的交易默认均被视为 local 交易
-	Locals    []common.Address // Addresses that should be treated by default as local
-	
+	Locals []common.Address // Addresses that should be treated by default as local
+
 	//是否禁止local交易处理。默认为 fasle,允许 local 交易。
 	//如果禁止,则来自 local 的交易均视为 remote 交易处理
-	NoLocals  bool             // Whether local transaction handling should be disabled
-	
+	NoLocals bool // Whether local transaction handling should be disabled
+
 	//存储local交易记录的文件名，默认是 ./transactions.rlp
-	Journal   string           // Journal of local transactions to survive node restarts
-	
+	Journal string // Journal of local transactions to survive node restarts
+
 	//定期将local交易存储文件中的时间间隔。默认为每小时一次
-	Rejournal time.Duration    // Time interval to regenerate the local transaction journal
+	Rejournal time.Duration // Time interval to regenerate the local transaction journal
 
 	// remote交易进入交易池的最低 Price 要求。此设置对 local 交易无效。默认值1
 	PriceLimit uint64 // Minimum gas price to enforce for acceptance into the pool
-	
+
 	//替换交易时所要求的价格上调涨幅比例最低要求。任何低于要求的替换交易均被拒绝。
-	PriceBump  uint64 // Minimum price bump percentage to replace an already existing transaction (nonce)
+	PriceBump uint64 // Minimum price bump percentage to replace an already existing transaction (nonce)
 
 	//当交易池中可执行交易（是已在等待矿工打包的交易）量超标时，允许每个账户可以保留在交易池最低交易数。默认值是 16 笔。
 	AccountSlots uint64 // Number of executable transaction slots guaranteed per account
-	
+
 	//交易池中所允许的可执行交易量上限，高于上限时将释放部分交易。默认是 4096 笔交易。
-	GlobalSlots  uint64 // Maximum number of executable transaction slots for all accounts
-	
+	GlobalSlots uint64 // Maximum number of executable transaction slots for all accounts
+
 	//交易池中单个账户 非可执行交易 上限，默认是64笔。
 	AccountQueue uint64 // Maximum number of non-executable transaction slots permitted per account
-	
+
 	//交易池中所有非可执行交易上限，默认 1024 笔。
-	GlobalQueue  uint64 // Maximum number of non-executable transaction slots for all accounts
+	GlobalQueue uint64 // Maximum number of non-executable transaction slots for all accounts
 
 	// 允许 remote 的非可执行交易可在交易池存活的最长时间。
 	//交易池每分钟检查一次，一旦发现有超期的remote 账户，则移除该账户下的所有非可执行交易。默认为3小时。
@@ -254,19 +264,29 @@ func (config *TxPoolConfig) sanitize() TxPoolConfig {
 // current state) and future transactions. Transactions move between those
 // two states over time as they are received and processed.
 type TxPool struct {
-	config      TxPoolConfig
-	chainconfig *params.ChainConfig
-	chain       blockChain
-	gasPrice    *big.Int
-	txFeed      event.Feed
-	scope       event.SubscriptionScope
-	signer      types.Signer
-	mu          sync.RWMutex
+	//配置信息
+	config TxPoolConfig
+	//链配置
+	chainconfig *params.ChainConfig //param(中文->参数)
+	//当前链
+	chain blockChain
+	//最低的gas价格
+	gasPrice *big.Int
+	//通过txFedd订阅TxPool的信息
+	txFeed event.Feed
+	//提供了同时取消多个订阅的功能
+	scope  event.SubscriptionScope
+
+	//对事物进行签名处理
+	signer types.Signer
+	//读写互斥锁
+	mu     sync.RWMutex
 
 	istanbul bool // Fork indicator whether we are in the istanbul stage.
 	eip2718  bool // Fork indicator whether we are using EIP-2718 type transactions.
 	eip1559  bool // Fork indicator whether we are using EIP-1559 type transactions.
 
+	//区块链头部的当前状态
 	currentState  *state.StateDB // Current state in the blockchain head
 	pendingNonces *txNoncer      // Pending state tracking virtual nonces
 	currentMaxGas uint64         // Current gas limit for transaction caps
@@ -274,13 +294,18 @@ type TxPool struct {
 	locals  *accountSet // Set of local transaction to exempt from eviction rules
 	journal *txJournal  // Journal of local transaction to back up to disk
 
+	//可执行队列
 	pending map[common.Address]*txList   // All currently processable transactions
+	//排队队列
 	queue   map[common.Address]*txList   // Queued but non-processable transactions
 	beats   map[common.Address]time.Time // Last heartbeat from each known account
 	all     *txLookup                    // All transactions to allow lookups
+	//所有按价格排序的交易
 	priced  *txPricedList                // All transactions sorted by price
 
+	//当有了新的区块的产生会收到消息，订阅区块头消息
 	chainHeadCh     chan ChainHeadEvent
+	//区块头消息订阅器
 	chainHeadSub    event.Subscription
 	reqResetCh      chan *txpoolResetRequest
 	reqPromoteCh    chan *accountSet
@@ -293,17 +318,20 @@ type TxPool struct {
 	changesSinceReorg int // A counter for how many drops we've performed in-between reorg.
 }
 
+//意思是交易池收到替换请求？？？（待验证）
 type txpoolResetRequest struct {
 	oldHead, newHead *types.Header
 }
 
 // NewTxPool creates a new transaction pool to gather, sort and filter inbound
 // transactions from the network.
+//其实就是创建一个新的交易池TxPool
 func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain blockChain) *TxPool {
 	// Sanitize the input to ensure no vulnerable gas prices are set
-	config = (&config).sanitize()
+	config = (&config).sanitize()//检查gas的相关问题（以后再进行补充）
 
 	// Create the transaction pool with its initial settings
+	//这一个初始化部分是核心 
 	pool := &TxPool{
 		config:          config,
 		chainconfig:     chainconfig,
@@ -312,8 +340,8 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 		pending:         make(map[common.Address]*txList),
 		queue:           make(map[common.Address]*txList),
 		beats:           make(map[common.Address]time.Time),
-		all:             newTxLookup(),
-		chainHeadCh:     make(chan ChainHeadEvent, chainHeadChanSize),
+		all:             newTxLookup(),//所有交易
+		chainHeadCh:     make(chan ChainHeadEvent, chainHeadChanSize),//创建了一个大小为10的chan
 		reqResetCh:      make(chan *txpoolResetRequest),
 		reqPromoteCh:    make(chan *accountSet),
 		queueTxEventCh:  make(chan *types.Transaction),
@@ -322,12 +350,15 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 		initDoneCh:      make(chan struct{}),
 		gasPrice:        new(big.Int).SetUint64(config.PriceLimit),
 	}
+	//newAccountSet 使用关联的签名者创建新地址集，用于sender派生。
 	pool.locals = newAccountSet(pool.signer)
 	for _, addr := range config.Locals {
 		log.Info("Setting new local account", "address", addr)
 		pool.locals.add(addr)
 	}
+	//newTxPricedList 创建了一个新的价格排序交易堆。
 	pool.priced = newTxPricedList(pool.all)
+	//reset检索区块链的当前状态，并确保交易池的内容相对于链状态有效。
 	pool.reset(nil, chain.CurrentBlock().Header())
 
 	// Start the reorg loop early so it can handle requests generated during journal loading.
@@ -335,6 +366,7 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 	go pool.scheduleReorgLoop()
 
 	// If local transactions and journaling is enabled, load from disk
+	//允许local交易 并且储存了journal
 	if !config.NoLocals && config.Journal != "" {
 		pool.journal = newTxJournal(config.Journal)
 
@@ -347,8 +379,14 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 	}
 
 	// Subscribe events from blockchain and start the main event loop.
+	//从区块链订阅事件 （还不理解啥意思--lv）
 	pool.chainHeadSub = pool.chain.SubscribeChainHeadEvent(pool.chainHeadCh)
+	
+	//启动事件循环并返回
 	pool.wg.Add(1)
+
+	//是txPool的一个goroutine.也是主要的事件循环.（下一个函数）
+	//等待和响应外部区块链事件以及各种报告和交易驱逐事件
 	go pool.loop()
 
 	return pool
@@ -358,6 +396,7 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 // outside blockchain events as well as for various reporting and transaction
 // eviction events.
 func (pool *TxPool) loop() {
+	//完成后将 WaitGroup 计数器递减 1。
 	defer pool.wg.Done()
 
 	var (
