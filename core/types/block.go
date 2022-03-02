@@ -181,7 +181,7 @@ func (h *Header) EmptyReceipts() bool {
 	return h.ReceiptHash == EmptyRootHash
 }
 
-//区块的主体是交易和引用的叔块
+//区块的主体是交易和引用的叔块，暂存数据
 
 // Body is a simple (mutable, non-safe) data container for storing and moving
 // a block's data contents (transactions and uncles) together.
@@ -192,17 +192,19 @@ type Body struct {
 
 // Block represents an entire block in the Ethereum blockchain.
 type Block struct {
-	header       *Header   //区块头
-	uncles       []*Header //引用的叔块
-	transactions Transactions
+	header       *Header      //区块头
+	uncles       []*Header    //引用的叔块
+	transactions Transactions //交易
 
 	// caches
-	hash atomic.Value
-	size atomic.Value
+	hash atomic.Value //区块哈希
+	size atomic.Value //区块大小
 
 	// Td is used by package core to store the total difficulty
 	// of the chain up to and including the block.
-	td *big.Int
+	td *big.Int //链的总难度，与最长链原则相关
+
+	//与 p2p 功能相关
 
 	// These fields are used by package eth to track
 	// inter-peer block relay.
@@ -231,22 +233,22 @@ func NewBlock(header *Header, txs []*Transaction, uncles []*Header, receipts []*
 	if len(txs) == 0 {
 		b.header.TxHash = EmptyRootHash
 	} else {
-		b.header.TxHash = DeriveSha(Transactions(txs), hasher)
+		b.header.TxHash = DeriveSha(Transactions(txs), hasher) //生成交易树的根哈希
 		b.transactions = make(Transactions, len(txs))
-		copy(b.transactions, txs)
+		copy(b.transactions, txs) //复制交易到区块
 	}
 
 	if len(receipts) == 0 {
 		b.header.ReceiptHash = EmptyRootHash
 	} else {
-		b.header.ReceiptHash = DeriveSha(Receipts(receipts), hasher)
-		b.header.Bloom = CreateBloom(receipts)
+		b.header.ReceiptHash = DeriveSha(Receipts(receipts), hasher) //生成收据树根哈希
+		b.header.Bloom = CreateBloom(receipts)                       //根据收据创建布隆过滤器
 	}
 
 	if len(uncles) == 0 {
 		b.header.UncleHash = EmptyUncleHash
 	} else {
-		b.header.UncleHash = CalcUncleHash(uncles)
+		b.header.UncleHash = CalcUncleHash(uncles) //生成叔块哈希
 		b.uncles = make([]*Header, len(uncles))
 		for i := range uncles {
 			b.uncles[i] = CopyHeader(uncles[i])
