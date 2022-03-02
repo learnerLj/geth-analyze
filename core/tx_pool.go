@@ -368,18 +368,22 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 	// If local transactions and journaling is enabled, load from disk
 	//允许local交易 并且储存了journal
 	if !config.NoLocals && config.Journal != "" {
+		//在启动交易池时根据配置开启本地交易存储能力
+		//主要是从config中读出
 		pool.journal = newTxJournal(config.Journal)
 
+		//load 从磁盘加载已有交易到交易池中。
 		if err := pool.journal.load(pool.AddLocals); err != nil {
 			log.Warn("Failed to load transaction journal", "err", err)
 		}
+		//对 journal 文件执行 rotate，将交易池中的本地交易写入journal文件，并丢弃旧数据。
 		if err := pool.journal.rotate(pool.local()); err != nil {
 			log.Warn("Failed to rotate transaction journal", "err", err)
 		}
 	}
 
 	// Subscribe events from blockchain and start the main event loop.
-	//从区块链订阅事件 （还不理解啥意思--lv）
+	//在交易池启动后，将订阅链的区块头事件
 	pool.chainHeadSub = pool.chain.SubscribeChainHeadEvent(pool.chainHeadCh)
 
 	//启动事件循环并返回
@@ -418,58 +422,86 @@ func (pool *TxPool) loop() {
 	// Notify tests that the init phase is done
 	//通知测试初始阶段已经完成
 	close(pool.initDoneCh)
+
+	/*
+		首先，pool.loop()定义了三个定时器：
+				1、report为每8秒钟报告一次状态；
+				2、evict为每分钟检测不活动account的交易移除（超过3小时不活动的账户交易要被移除）
+				3、journal为每小时更新一下本地的local transaction journal。
+
+		然后开启监听循环：
+				1、监听规范链更新事件，重置交易池：pool.reset()；
+				2、监听report.C，定时打印最新pending和queue状态；
+				3、监听evict.C，定时删除超时交易；
+				4、监听hournal.C，定时本地储存尚未额打包的local交易；
+	*/
 	for {
 		select {
 		// Handle ChainHeadEvent
+		//开始监听新事件
 		case ev := <-pool.chainHeadCh:
 			if ev.Block != nil {
 				//requestReset请求将池重置为新的头块。
 				//复位发生时，返回的通道关闭。
+				//当交易池接收到新区块信号时，将立即重置 statedb。
 				pool.requestReset(head.Header(), ev.Block.Header())
 				head = ev.Block
 			}
 
 		// System shutdown.
+		//由于系统停止而取消订阅
 		case <-pool.chainHeadSub.Err():
 			close(pool.reorgShutdownCh)
 			return
 
-		// Handle stats reporting ticks
+		// Handle stats reporting ticks (8s)
 		case <-report.C:
+
+			//加锁
 			pool.mu.RLock()
 			//stats检索当前池的统计信息，即挂起的事务数和排队（不可执行）的事务数。
 			pending, queued := pool.stats()
+			//解锁
 			pool.mu.RUnlock()
+			//stales不理解
 			stales := int(atomic.LoadInt64(&pool.priced.stales))
 
+			//这一步的目的=> 去更新这三项数据并打印出来
 			if pending != prevPending || queued != prevQueued || stales != prevStales {
 				log.Debug("Transaction pool status report", "executable", pending, "queued", queued, "stales", stales)
 				prevPending, prevQueued, prevStales = pending, queued, stales
 			}
 
+
 		// Handle inactive account transaction eviction
+		//处理非活动账户退出（即定时删除超时交易） (3h)
 		case <-evict.C:
 			pool.mu.Lock()
 			for addr := range pool.queue {
 				// Skip local transactions from the eviction mechanism
+				//跳出本地事务（意思是本地交易不会被逐出）
 				if pool.locals.contains(addr) {
 					continue
 				}
 				// Any non-locals old enough should be removed
 				if time.Since(pool.beats[addr]) > pool.config.Lifetime {
+					//Flatten函数应当去了解下
 					list := pool.queue[addr].Flatten()
 					for _, tx := range list {
+						//正式进行移除
 						pool.removeTx(tx.Hash(), true)
 					}
+					//不理解
 					queuedEvictionMeter.Mark(int64(len(list)))
 				}
 			}
 			pool.mu.Unlock()
 
-		// Handle local transaction journal rotation
+		// Handle local transaction journal rotation (1h)
 		case <-journal.C:
 			if pool.journal != nil {
 				pool.mu.Lock()
+				//将本地的交易进行打包
 				if err := pool.journal.rotate(pool.local()); err != nil {
 					log.Warn("Failed to rotate local tx journal", "err", err)
 				}
@@ -480,6 +512,7 @@ func (pool *TxPool) loop() {
 }
 
 // Stop terminates the transaction pool.
+//关闭交易池
 func (pool *TxPool) Stop() {
 	// Unsubscribe all subscriptions registered from txpool
 	pool.scope.Close()
@@ -489,8 +522,11 @@ func (pool *TxPool) Stop() {
 	pool.wg.Wait()
 
 	if pool.journal != nil {
+		//关闭所有本地交易
 		pool.journal.close()
 	}
+
+	//打印出提示信息
 	log.Info("Transaction pool stopped")
 }
 
@@ -510,6 +546,7 @@ func (pool *TxPool) GasPrice() *big.Int {
 
 // SetGasPrice updates the minimum price required by the transaction pool for a
 // new transaction, and drops all transactions below this threshold.
+//更新gasPrice并更新移除不合格的remote交易
 func (pool *TxPool) SetGasPrice(price *big.Int) {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
@@ -535,8 +572,11 @@ func (pool *TxPool) Nonce(addr common.Address) uint64 {
 	pool.mu.RLock()
 	defer pool.mu.RUnlock()
 
+	//返回账户下一个的nonce值
 	return pool.pendingNonces.get(addr)
 }
+
+//下面两个函数合成一个函数不是很好吗？？
 
 // Stats retrieves the current pool stats, namely the number of pending and the
 // number of queued (non-executable) transactions.
@@ -567,12 +607,16 @@ func (pool *TxPool) Content() (map[common.Address]types.Transactions, map[common
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 
+	//创建pending 键对值 addr=>transactions
 	pending := make(map[common.Address]types.Transactions)
+
 	for addr, list := range pool.pending {
+		//针对pending的nonce进行排序
 		pending[addr] = list.Flatten()
 	}
 	queued := make(map[common.Address]types.Transactions)
 	for addr, list := range pool.queue {
+		//针对queue的nonce进行排序
 		queued[addr] = list.Flatten()
 	}
 	return pending, queued
@@ -580,6 +624,7 @@ func (pool *TxPool) Content() (map[common.Address]types.Transactions, map[common
 
 // ContentFrom retrieves the data content of the transaction pool, returning the
 // pending as well as queued transactions of this address, grouped by nonce.
+//只是返回值和上个函数不一样而已
 func (pool *TxPool) ContentFrom(addr common.Address) (types.Transactions, types.Transactions) {
 	pool.mu.RLock()
 	defer pool.mu.RUnlock()
@@ -610,15 +655,19 @@ func (pool *TxPool) Pending(enforceTips bool) map[common.Address]types.Transacti
 	for addr, list := range pool.pending {
 		txs := list.Flatten()
 
+
 		// If the miner requests tip enforcement, cap the lists now
+		//矿工要求执行的话 那就把该list封顶 进行执行 （这个可能就是enforceTips的意义）
 		if enforceTips && !pool.locals.contains(addr) {
 			for i, tx := range txs {
 				if tx.EffectiveGasTipIntCmp(pool.gasPrice, pool.priced.urgent.baseFee) < 0 {
+					//因为是按照gasPrice已经排好序的序列 所以检测到不合格的之后 后面就是不合格的remote交易
 					txs = txs[:i]
 					break
 				}
 			}
 		}
+		//简要判断下是否txs里是已经没有交易了
 		if len(txs) > 0 {
 			pending[addr] = txs
 		}
@@ -639,10 +688,15 @@ func (pool *TxPool) Locals() []common.Address {
 // freely modified by calling code.
 func (pool *TxPool) local() map[common.Address]types.Transactions {
 	txs := make(map[common.Address]types.Transactions)
+
+	//先不考虑account的事情 后面的struct{}也先不考虑
 	for addr := range pool.locals.accounts {
+		//后续的两个if区分了 peding和queue的 队列	
+
 		if pending := pool.pending[addr]; pending != nil {
 			txs[addr] = append(txs[addr], pending.Flatten()...)
 		}
+
 		if queued := pool.queue[addr]; queued != nil {
 			txs[addr] = append(txs[addr], queued.Flatten()...)
 		}
@@ -652,6 +706,7 @@ func (pool *TxPool) local() map[common.Address]types.Transactions {
 
 // validateTx checks whether a transaction is valid according to the consensus
 // rules and adheres to some heuristic limits of the local node (price and size).
+//主要功能是验证一个交易的合法性
 func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	// Accept only legacy transactions until EIP-2718/2930 activates.
 	if !pool.eip2718 && tx.Type() != types.LegacyTxType {
@@ -662,6 +717,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 		return ErrTxTypeNotSupported
 	}
 	// Reject transactions over defined size to prevent DOS attacks
+	//防止DOS攻击，不允许交易数据超过32KB
 	if uint64(tx.Size()) > txMaxSize {
 		return ErrOversizedData
 	}
@@ -671,10 +727,12 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 		return ErrNegativeValue
 	}
 	// Ensure the transaction doesn't exceed the current block limit gas.
+	//确保gas是超过规范的gas值
 	if pool.currentMaxGas < tx.Gas() {
 		return ErrGasLimit
 	}
 	// Sanity check for extremely large numbers
+	//为啥是256呢 我的想法是私钥的总数是2的256次方 所以采用这个标准
 	if tx.GasFeeCap().BitLen() > 256 {
 		return ErrFeeCapVeryHigh
 	}
@@ -686,21 +744,28 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 		return ErrTipAboveFeeCap
 	}
 	// Make sure the transaction is signed properly.
+	//确保签名的正确性
 	from, err := types.Sender(pool.signer, tx)
+	//一旦解析失败拒绝此交易
 	if err != nil {
 		return ErrInvalidSender
 	}
 	// Drop non-local transactions under our own minimal accepted gas price or tip.
 	pendingBaseFee := pool.priced.urgent.baseFee
+	//为何只比较了price而没有 tip
+	//即使交易从网络到达，帐户也可能是本地的 所以需要判断一下是否为local
 	if !local && tx.EffectiveGasTipIntCmp(pool.gasPrice, pendingBaseFee) < 0 {
 		return ErrUnderpriced
 	}
+
+
 	// Ensure the transaction adheres to nonce ordering
 	if pool.currentState.GetNonce(from) > tx.Nonce() {
 		return ErrNonceTooLow
 	}
 	// Transactor should have enough funds to cover the costs
 	// cost == V + GP * GL
+	//确保余额是足够的
 	if pool.currentState.GetBalance(from).Cmp(tx.Cost()) < 0 {
 		return ErrInsufficientFunds
 	}
@@ -724,6 +789,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 // out of the pool due to pricing constraints.
 func (pool *TxPool) add(tx *types.Transaction, local bool) (replaced bool, err error) {
 	// If the transaction is already known, discard it
+	//交易已经在交易池中就会被丢弃
 	hash := tx.Hash()
 	if pool.all.Get(hash) != nil {
 		log.Trace("Discarding already known transaction", "hash", hash)
@@ -732,15 +798,18 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (replaced bool, err e
 	}
 	// Make the local flag. If it's from local source or it's from the network but
 	// the sender is marked as local previously, treat it as the local transaction.
+	//来自本地或者是账户地址是本地的 都会视为local
 	isLocal := local || pool.locals.containsTx(tx)
 
 	// If the transaction fails basic validation, discard it
+	//共识验证
 	if err := pool.validateTx(tx, isLocal); err != nil {
 		log.Trace("Discarding invalid transaction", "hash", hash, "err", err)
 		invalidTxMeter.Mark(1)
 		return false, err
 	}
 	// If the transaction pool is full, discard underpriced transactions
+	//slots 意思是“插槽” 这里代表交易池的容量 非常形象
 	if uint64(pool.all.Slots()+numSlots(tx)) > pool.config.GlobalSlots+pool.config.GlobalQueue {
 		// If the new transaction is underpriced, don't accept it
 		if !isLocal && pool.priced.Underpriced(tx) {
@@ -777,7 +846,9 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (replaced bool, err e
 			pool.removeTx(tx.Hash(), false)
 		}
 	}
+
 	// Try to replace an existing transaction in the pending pool
+	//pending中的交易加价 进行更新
 	from, _ := types.Sender(pool.signer, tx) // already validated
 	if list := pool.pending[from]; list != nil && list.Overlaps(tx) {
 		// Nonce already pending, check if required price bump is met
@@ -792,9 +863,13 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (replaced bool, err e
 			pool.priced.Removed(1)
 			pendingReplaceMeter.Mark(1)
 		}
+		//islocal参数是用来判断加入哪一个列表
 		pool.all.Add(tx, isLocal)
+		//加入价格heap
 		pool.priced.Put(tx, isLocal)
+		//如果是本地账户交易的话就将该交易添加到本地磁盘日志中
 		pool.journalTx(from, tx)
+		//不理解下面这句话
 		pool.queueTxEvent(tx)
 		log.Trace("Pooled new executable transaction", "hash", hash, "from", from, "to", tx.To())
 
@@ -803,6 +878,7 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (replaced bool, err e
 		return old != nil, nil
 	}
 	// New transaction isn't replacing a pending one, push into queue
+	//如果原来不是pending队列的 加价也不能加入到pending队列中 只能是queue中
 	replaced, err = pool.enqueueTx(hash, tx, isLocal, true)
 	if err != nil {
 		return false, err
@@ -824,30 +900,35 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (replaced bool, err e
 
 // enqueueTx inserts a new transaction into the non-executable transaction queue.
 //
-// Note, this method assumes the pool lock is held!
+// Note, this method assumes the pool lock is held!（交易池被持有）
 func (pool *TxPool) enqueueTx(hash common.Hash, tx *types.Transaction, local bool, addAll bool) (bool, error) {
 	// Try to insert the transaction into the future queue
 	from, _ := types.Sender(pool.signer, tx) // already validated
 	if pool.queue[from] == nil {
 		pool.queue[from] = newTxList(false)
 	}
+	//替换交易时所要求的价格上调涨幅比例最低要求。任何低于要求的替换交易均被拒绝
 	inserted, old := pool.queue[from].Add(tx, pool.config.PriceBump)
+	//没有成功替换
 	if !inserted {
 		// An older transaction was better, discard this
 		queuedDiscardMeter.Mark(1)
 		return false, ErrReplaceUnderpriced
 	}
 	// Discard any previous transaction and mark this
+	//成功替换并丢弃old
 	if old != nil {
 		pool.all.Remove(old.Hash())
 		pool.priced.Removed(1)
 		queuedReplaceMeter.Mark(1)
 	} else {
 		// Nothing was replaced, bump the queued counter
+		//没有被替换 证明还有余额 并不用代替其他的名额
 		queuedGauge.Inc(1)
 	}
 	// If the transaction isn't in lookup set but it's expected to be there,
 	// show the error log.
+	//这一步是确定我们添加的交易已经被添加进去 所以进行的检验环节
 	if pool.all.Get(hash) == nil && !addAll {
 		log.Error("Missing transaction in lookup set, please report the issue", "hash", hash)
 	}
@@ -857,6 +938,7 @@ func (pool *TxPool) enqueueTx(hash common.Hash, tx *types.Transaction, local boo
 	}
 	// If we never record the heartbeat, do it right now.
 	if _, exist := pool.beats[from]; !exist {
+		//若没有则加上时间戳
 		pool.beats[from] = time.Now()
 	}
 	return old != nil, nil
@@ -864,9 +946,10 @@ func (pool *TxPool) enqueueTx(hash common.Hash, tx *types.Transaction, local boo
 
 // journalTx adds the specified transaction to the local disk journal if it is
 // deemed to have been sent from a local account.
+//这里印证了从本地账户发出的交易都是local 即便不是从本地发出的
 func (pool *TxPool) journalTx(from common.Address, tx *types.Transaction) {
 	// Only journal if it's enabled and the transaction is local
-	if pool.journal == nil || !pool.locals.contains(from) {
+	if pool.journal == nil/*确定日志被启用*/ || !pool.locals.contains(from) {
 		return
 	}
 	if err := pool.journal.insert(tx); err != nil {

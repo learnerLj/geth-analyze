@@ -416,6 +416,8 @@ func (l *txList) LastElement() *types.Transaction {
 	return l.txs.LastElement()
 }
 
+//一下为自定义堆（heap)以及方法实现
+
 // priceHeap is a heap.Interface implementation over transactions for retrieving
 // price-sorted transactions to discard when the pool fills up. If baseFee is set
 // then the heap is sorted based on the effective tip based on the given base fee.
