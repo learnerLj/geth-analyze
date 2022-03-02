@@ -32,14 +32,20 @@ import (
 )
 
 var (
-	EmptyRootHash  = common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
+	//区块中不含有交易时的 MPT 树根哈希
+	EmptyRootHash = common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
+	//引用的叔块不含有交易时的哈希，请自行理解叔块
 	EmptyUncleHash = rlpHash([]*Header(nil))
 )
+
+//用于调节难度的随机数
 
 // A BlockNonce is a 64-bit hash which proves (combined with the
 // mix-hash) that a sufficient amount of computation has been carried
 // out on a block.
 type BlockNonce [8]byte
+
+//整数转换成 BlockNonce
 
 // EncodeNonce converts the given integer to a block nonce.
 func EncodeNonce(i uint64) BlockNonce {
@@ -48,40 +54,55 @@ func EncodeNonce(i uint64) BlockNonce {
 	return n
 }
 
+//BlockNonce 转成整数
+
 // Uint64 returns the integer value of a block nonce.
 func (n BlockNonce) Uint64() uint64 {
 	return binary.BigEndian.Uint64(n[:])
 }
+
+//BlockNonce 转换成十六进制字节
 
 // MarshalText encodes n as a hex string with 0x prefix.
 func (n BlockNonce) MarshalText() ([]byte, error) {
 	return hexutil.Bytes(n[:]).MarshalText()
 }
 
+//检查 input 的字节是否和所需的类型的相同，相同时用 input 设置 BlockNonce 的值
+
 // UnmarshalText implements encoding.TextUnmarshaler.
 func (n *BlockNonce) UnmarshalText(input []byte) error {
 	return hexutil.UnmarshalFixedText("BlockNonce", input, n[:])
 }
 
+//序列化工具，方便导出 JSON
 //go:generate gencodec -type Header -field-override headerMarshaling -out gen_header_json.go
 
 // Header represents a block header in the Ethereum blockchain.
 type Header struct {
-	ParentHash  common.Hash    `json:"parentHash"       gencodec:"required"`
-	UncleHash   common.Hash    `json:"sha3Uncles"       gencodec:"required"`
-	Coinbase    common.Address `json:"miner"            gencodec:"required"`
-	Root        common.Hash    `json:"stateRoot"        gencodec:"required"`
-	TxHash      common.Hash    `json:"transactionsRoot" gencodec:"required"`
-	ReceiptHash common.Hash    `json:"receiptsRoot"     gencodec:"required"`
-	Bloom       Bloom          `json:"logsBloom"        gencodec:"required"`
-	Difficulty  *big.Int       `json:"difficulty"       gencodec:"required"`
-	Number      *big.Int       `json:"number"           gencodec:"required"`
-	GasLimit    uint64         `json:"gasLimit"         gencodec:"required"`
-	GasUsed     uint64         `json:"gasUsed"          gencodec:"required"`
-	Time        uint64         `json:"timestamp"        gencodec:"required"`
-	Extra       []byte         `json:"extraData"        gencodec:"required"`
-	MixDigest   common.Hash    `json:"mixHash"`
-	Nonce       BlockNonce     `json:"nonce"`
+	ParentHash common.Hash    `json:"parentHash"       gencodec:"required"`
+	UncleHash  common.Hash    `json:"sha3Uncles"       gencodec:"required"`
+	Coinbase   common.Address `json:"miner"            gencodec:"required"`
+	//状态树根哈希
+	Root common.Hash `json:"stateRoot"        gencodec:"required"`
+	//交易数根哈希
+	TxHash common.Hash `json:"transactionsRoot" gencodec:"required"`
+	//收据树根哈希
+	ReceiptHash common.Hash `json:"receiptsRoot"     gencodec:"required"`
+	//布隆过滤器
+	Bloom      Bloom    `json:"logsBloom"        gencodec:"required"`
+	Difficulty *big.Int `json:"difficulty"       gencodec:"required"`
+	Number     *big.Int `json:"number"           gencodec:"required"`
+	GasLimit   uint64   `json:"gasLimit"         gencodec:"required"`
+	GasUsed    uint64   `json:"gasUsed"          gencodec:"required"`
+	Time       uint64   `json:"timestamp"        gencodec:"required"`
+	//为未来共识机制调整预留的额外字段
+	Extra []byte `json:"extraData"        gencodec:"required"`
+	//验证 PoW 时，从 Nonce 计算出的中间数据，可以减少验证时的计算量。
+	//并且可以防止故意发送错误的验证信息导致验证者遭受拒绝服务攻击。
+	MixDigest common.Hash `json:"mixHash"`
+	// 验证挖矿时的随机数，请了解挖矿过程。
+	Nonce BlockNonce `json:"nonce"`
 
 	// BaseFee was added by EIP-1559 and is ignored in legacy headers.
 	BaseFee *big.Int `json:"baseFeePerGas" rlp:"optional"`
@@ -99,19 +120,26 @@ type headerMarshaling struct {
 	Hash       common.Hash `json:"hash"` // adds call to Hash() in MarshalJSON
 }
 
+//获取区块头的哈希，通过计算区块头的 RLP 编码的 keccak256 哈希。
+
 // Hash returns the block hash of the header, which is simply the keccak256 hash of its
 // RLP encoding.
 func (h *Header) Hash() common.Hash {
 	return rlpHash(h)
 }
 
+//反射类型用于获取运行时信息，这里获取 header 的内存的字节数，和动态类型相关
 var headerSize = common.StorageSize(reflect.TypeOf(Header{}).Size())
+
+//获取区块头占用的内存大小，用于估计占用内存和限制内存消耗
 
 // Size returns the approximate memory used by all internal contents. It is used
 // to approximate and limit the memory consumption of various caches.
 func (h *Header) Size() common.StorageSize {
 	return headerSize + common.StorageSize(len(h.Extra)+(h.Difficulty.BitLen()+h.Number.BitLen())/8)
 }
+
+//检查字段是否合理以及动态类型所占用的内存是否合理
 
 // SanityCheck checks a few basic things -- these checks are way beyond what
 // any 'sane' production values should hold, and can mainly be used to prevent
@@ -137,16 +165,23 @@ func (h *Header) SanityCheck() error {
 	return nil
 }
 
+//区块为空：无交易且未引用叔块
+
 // EmptyBody returns true if there is no additional 'body' to complete the header
 // that is: no transactions and no uncles.
 func (h *Header) EmptyBody() bool {
 	return h.TxHash == EmptyRootHash && h.UncleHash == EmptyUncleHash
 }
 
+//收据为空，收据是交易是否完成，是对数据存在性的证明。
+//收据为空的默认哈希被定义成和状态树根哈希相同
+
 // EmptyReceipts returns true if there are no receipts for this header/block.
 func (h *Header) EmptyReceipts() bool {
 	return h.ReceiptHash == EmptyRootHash
 }
+
+//区块的主体是交易和引用的叔块
 
 // Body is a simple (mutable, non-safe) data container for storing and moving
 // a block's data contents (transactions and uncles) together.
@@ -157,8 +192,8 @@ type Body struct {
 
 // Block represents an entire block in the Ethereum blockchain.
 type Block struct {
-	header       *Header
-	uncles       []*Header
+	header       *Header   //区块头
+	uncles       []*Header //引用的叔块
 	transactions Transactions
 
 	// caches
