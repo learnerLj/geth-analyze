@@ -275,12 +275,12 @@ type TxPool struct {
 	//通过txFedd订阅TxPool的信息
 	txFeed event.Feed
 	//提供了同时取消多个订阅的功能
-	scope  event.SubscriptionScope
+	scope event.SubscriptionScope
 
 	//对事物进行签名处理
 	signer types.Signer
 	//读写互斥锁
-	mu     sync.RWMutex
+	mu sync.RWMutex
 
 	istanbul bool // Fork indicator whether we are in the istanbul stage.
 	eip2718  bool // Fork indicator whether we are using EIP-2718 type transactions.
@@ -295,16 +295,16 @@ type TxPool struct {
 	journal *txJournal  // Journal of local transaction to back up to disk
 
 	//可执行队列
-	pending map[common.Address]*txList   // All currently processable transactions
+	pending map[common.Address]*txList // All currently processable transactions
 	//排队队列
-	queue   map[common.Address]*txList   // Queued but non-processable transactions
-	beats   map[common.Address]time.Time // Last heartbeat from each known account
-	all     *txLookup                    // All transactions to allow lookups
+	queue map[common.Address]*txList   // Queued but non-processable transactions
+	beats map[common.Address]time.Time // Last heartbeat from each known account
+	all   *txLookup                    // All transactions to allow lookups
 	//所有按价格排序的交易
-	priced  *txPricedList                // All transactions sorted by price
+	priced *txPricedList // All transactions sorted by price
 
 	//当有了新的区块的产生会收到消息，订阅区块头消息
-	chainHeadCh     chan ChainHeadEvent
+	chainHeadCh chan ChainHeadEvent
 	//区块头消息订阅器
 	chainHeadSub    event.Subscription
 	reqResetCh      chan *txpoolResetRequest
@@ -328,10 +328,10 @@ type txpoolResetRequest struct {
 //其实就是创建一个新的交易池TxPool
 func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain blockChain) *TxPool {
 	// Sanitize the input to ensure no vulnerable gas prices are set
-	config = (&config).sanitize()//检查gas的相关问题（以后再进行补充）
+	config = (&config).sanitize() //检查gas的相关问题（以后再进行补充）
 
 	// Create the transaction pool with its initial settings
-	//这一个初始化部分是核心 
+	//这一个初始化部分是核心
 	pool := &TxPool{
 		config:          config,
 		chainconfig:     chainconfig,
@@ -340,8 +340,8 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 		pending:         make(map[common.Address]*txList),
 		queue:           make(map[common.Address]*txList),
 		beats:           make(map[common.Address]time.Time),
-		all:             newTxLookup(),//所有交易
-		chainHeadCh:     make(chan ChainHeadEvent, chainHeadChanSize),//创建了一个大小为10的chan
+		all:             newTxLookup(),                                //所有交易
+		chainHeadCh:     make(chan ChainHeadEvent, chainHeadChanSize), //创建了一个大小为10的chan
 		reqResetCh:      make(chan *txpoolResetRequest),
 		reqPromoteCh:    make(chan *accountSet),
 		queueTxEventCh:  make(chan *types.Transaction),
@@ -381,7 +381,7 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 	// Subscribe events from blockchain and start the main event loop.
 	//从区块链订阅事件 （还不理解啥意思--lv）
 	pool.chainHeadSub = pool.chain.SubscribeChainHeadEvent(pool.chainHeadCh)
-	
+
 	//启动事件循环并返回
 	pool.wg.Add(1)
 
@@ -402,10 +402,13 @@ func (pool *TxPool) loop() {
 	var (
 		prevPending, prevQueued, prevStales int
 		// Start the stats reporting and transaction eviction tickers
+		//启动统计报告和交易退出计时器
 		report  = time.NewTicker(statsReportInterval)
 		evict   = time.NewTicker(evictionInterval)
 		journal = time.NewTicker(pool.config.Rejournal)
+
 		// Track the previous head headers for transaction reorgs
+		//跟踪交易重组的前一个头标头
 		head = pool.chain.CurrentBlock()
 	)
 	defer report.Stop()
@@ -413,12 +416,15 @@ func (pool *TxPool) loop() {
 	defer journal.Stop()
 
 	// Notify tests that the init phase is done
+	//通知测试初始阶段已经完成
 	close(pool.initDoneCh)
 	for {
 		select {
 		// Handle ChainHeadEvent
 		case ev := <-pool.chainHeadCh:
 			if ev.Block != nil {
+				//requestReset请求将池重置为新的头块。
+				//复位发生时，返回的通道关闭。
 				pool.requestReset(head.Header(), ev.Block.Header())
 				head = ev.Block
 			}
@@ -431,6 +437,7 @@ func (pool *TxPool) loop() {
 		// Handle stats reporting ticks
 		case <-report.C:
 			pool.mu.RLock()
+			//stats检索当前池的统计信息，即挂起的事务数和排队（不可执行）的事务数。
 			pending, queued := pool.stats()
 			pool.mu.RUnlock()
 			stales := int(atomic.LoadInt64(&pool.priced.stales))
