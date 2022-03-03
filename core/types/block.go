@@ -311,6 +311,7 @@ func (b *Block) EncodeRLP(w io.Writer) error {
 func (b *Block) Uncles() []*Header          { return b.uncles }
 func (b *Block) Transactions() Transactions { return b.transactions }
 
+//根据哈希搜索交易
 func (b *Block) Transaction(hash common.Hash) *Transaction {
 	for _, transaction := range b.transactions {
 		if transaction.Hash() == hash {
@@ -345,6 +346,7 @@ func (b *Block) BaseFee() *big.Int {
 	return new(big.Int).Set(b.header.BaseFee)
 }
 
+//这里一般都是复制
 func (b *Block) Header() *Header { return CopyHeader(b.header) }
 
 // Body returns the non-header content of the block.
@@ -370,6 +372,7 @@ func (b *Block) SanityCheck() error {
 
 type writeCounter common.StorageSize
 
+// 写入时的计数器，相当于句柄
 func (c *writeCounter) Write(b []byte) (int, error) {
 	*c += writeCounter(len(b))
 	return len(b), nil
@@ -382,6 +385,8 @@ func CalcUncleHash(uncles []*Header) common.Hash {
 	return rlpHash(uncles)
 }
 
+//seal 相当于铅封，类比区块头。生成用传入的区块头替代，主体不变的区块
+
 // WithSeal returns a new block with the data from b but the header replaced with
 // the sealed one.
 func (b *Block) WithSeal(header *Header) *Block {
@@ -393,6 +398,8 @@ func (b *Block) WithSeal(header *Header) *Block {
 		uncles:       b.uncles,
 	}
 }
+
+//替代区块主体，生成新的区块
 
 // WithBody returns a new block with the given transaction and uncle contents.
 func (b *Block) WithBody(transactions []*Transaction, uncles []*Header) *Block {
