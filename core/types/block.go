@@ -38,7 +38,7 @@ var (
 	EmptyUncleHash = rlpHash([]*Header(nil))
 )
 
-//用于调节难度的随机数
+//矿工挖矿的随机数
 
 // A BlockNonce is a 64-bit hash which proves (combined with the
 // mix-hash) that a sufficient amount of computation has been carried
