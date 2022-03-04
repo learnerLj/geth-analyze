@@ -280,30 +280,37 @@ func (l *txList) Overlaps(tx *types.Transaction) bool {
 // thresholds are also potentially updated.
 func (l *txList) Add(tx *types.Transaction, priceBump uint64) (bool, *types.Transaction) {
 	// If there's an older better transaction, abort
+
+	//查找出是否已经存在该笔交易
 	old := l.txs.Get(tx.Nonce())
 	if old != nil {
+		//新加入的交易在 fee(基础费用)和 tip(愿意支付的小费)两者上都没有原来的高 会被直接丢弃
 		if old.GasFeeCapCmp(tx) >= 0 || old.GasTipCapCmp(tx) >= 0 {
 			return false, nil
 		}
 		// thresholdFeeCap = oldFC  * (100 + priceBump) / 100
 		a := big.NewInt(100 + int64(priceBump))
+		//用a（一般是1.1）作为参数来进行相应的计算
 		aFeeCap := new(big.Int).Mul(a, old.GasFeeCap())
 		aTip := a.Mul(a, old.GasTipCap())
 
 		// thresholdTip    = oldTip * (100 + priceBump) / 100
 		b := big.NewInt(100)
+		//得到最终的结果
 		thresholdFeeCap := aFeeCap.Div(aFeeCap, b)
 		thresholdTip := aTip.Div(aTip, b)
 
 		// We have to ensure that both the new fee cap and tip are higher than the
 		// old ones as well as checking the percentage threshold to ensure that
 		// this is accurate for low (Wei-level) gas price replacements.
+		//进行比较确保新的交易要高于老的交易
 		if tx.GasFeeCapIntCmp(thresholdFeeCap) < 0 || tx.GasTipCapIntCmp(thresholdTip) < 0 {
 			return false, nil
 		}
 	}
 	// Otherwise overwrite the old transaction with the current one
 	l.txs.Put(tx)
+	//Cost returns gas * gasPrice + value.
 	if cost := tx.Cost(); l.costcap.Cmp(cost) < 0 {
 		l.costcap = cost
 	}

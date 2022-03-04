@@ -952,6 +952,7 @@ func (pool *TxPool) journalTx(from common.Address, tx *types.Transaction) {
 	if pool.journal == nil/*确定日志被启用*/ || !pool.locals.contains(from) {
 		return
 	}
+	//添加到磁盘中
 	if err := pool.journal.insert(tx); err != nil {
 		log.Warn("Failed to journal local transaction", "err", err)
 	}
@@ -968,6 +969,7 @@ func (pool *TxPool) promoteTx(addr common.Address, hash common.Hash, tx *types.T
 	}
 	list := pool.pending[addr]
 
+	//尝试加入pending
 	inserted, old := list.Add(tx, pool.config.PriceBump)
 	if !inserted {
 		// An older transaction was better, discard this
