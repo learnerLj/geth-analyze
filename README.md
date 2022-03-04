@@ -29,6 +29,8 @@ Todo list:
 - [ ]  `core/bloombits`
 - [ ]  区块链学习路线文章
 - [ ]  以太坊核心数据结构文章
+- [ ]  `core/tx_pool.go`
+- [ ]  `core/tx_list.go`
 
 ---
 

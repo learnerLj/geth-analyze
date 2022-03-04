@@ -193,6 +193,7 @@ func (m *txSortedMap) Remove(nonce uint64) bool {
 // Note, all transactions with nonces lower than start will also be returned to
 // prevent getting into and invalid state. This is not something that should ever
 // happen but better to be self correcting than failing!
+//ready()这里要着重讲一下 在md文档中
 func (m *txSortedMap) Ready(start uint64) types.Transactions {
 	// Short circuit if no transactions are available
 	if m.index.Len() == 0 || (*m.index)[0] > start {
@@ -200,9 +201,13 @@ func (m *txSortedMap) Ready(start uint64) types.Transactions {
 	}
 	// Otherwise start accumulating incremental transactions
 	var ready types.Transactions
+	//(*m.index)[0]对应的是堆顶元素值 heap.Pop()之后堆顶元素会进行更新
+	//如果(*m.index)[0]！=next就会被终止循环 因为其中有缺失的nonce 这是不被允许的
 	for next := (*m.index)[0]; m.index.Len() > 0 && (*m.index)[0] == next; next++ {
 		ready = append(ready, m.items[next])
+		//从map中进行删除
 		delete(m.items, next)
+		//剔除掉堆顶元素 即是最小的nonce值的那个
 		heap.Pop(m.index)
 	}
 	m.cache = nil
@@ -281,10 +286,12 @@ func (l *txList) Overlaps(tx *types.Transaction) bool {
 func (l *txList) Add(tx *types.Transaction, priceBump uint64) (bool, *types.Transaction) {
 	// If there's an older better transaction, abort
 
-	//查找出是否已经存在该笔交易
+	//查找出是否已经存在该笔交易（即是nonce是相同的）
 	old := l.txs.Get(tx.Nonce())
+
+	//存在的话要考虑相关类型的错误处理
 	if old != nil {
-		//新加入的交易在 fee(基础费用)和 tip(愿意支付的小费)两者上都没有原来的高 会被直接丢弃
+		//新加入的交易在 fee(基础费用)和 tip(愿意支付的小费)两者上其中一者没有原来的高 会被直接丢弃
 		if old.GasFeeCapCmp(tx) >= 0 || old.GasTipCapCmp(tx) >= 0 {
 			return false, nil
 		}
@@ -303,14 +310,17 @@ func (l *txList) Add(tx *types.Transaction, priceBump uint64) (bool, *types.Tran
 		// We have to ensure that both the new fee cap and tip are higher than the
 		// old ones as well as checking the percentage threshold to ensure that
 		// this is accurate for low (Wei-level) gas price replacements.
-		//进行比较确保新的交易要高于老的交易
+		//进行比较确保新的交易要高于老的交易的一定比例（一般是110%）
 		if tx.GasFeeCapIntCmp(thresholdFeeCap) < 0 || tx.GasTipCapIntCmp(thresholdTip) < 0 {
 			return false, nil
 		}
 	}
 	// Otherwise overwrite the old transaction with the current one
+	//有的话会进行覆盖 没有的话会进行添加
 	l.txs.Put(tx)
 	//Cost returns gas * gasPrice + value.
+
+	//这里不是特别理解 为啥要统计最高的花费（等下看）
 	if cost := tx.Cost(); l.costcap.Cmp(cost) < 0 {
 		l.costcap = cost
 	}
