@@ -6,10 +6,10 @@
 
 主要目标：
 
-- [ ] 深度理解以太坊底层运行机制
-- [ ] 深度理解以太坊字节码，能够对字节码进行安全分析。
-- [ ] 提供修改源码的参考，能够修改源码以完成测试、插桩，甚至新建自己的链。
-- [ ] 提供交易动态数据分析方法，最终实现区块链平台威胁感知和攻击检测的模型。（由于需要发表论文，需要暂时保密，时机成熟后公开）
+- [ ]  深度理解以太坊底层运行机制
+- [ ]  深度理解以太坊字节码，能够对字节码进行安全分析。
+- [ ]  提供修改源码的参考，能够修改源码以完成测试、插桩，甚至新建自己的链。
+- [ ]  提供交易动态数据分析方法，最终实现区块链平台威胁感知和攻击检测的模型。（由于需要发表论文，需要暂时保密，时机成熟后公开）
 
 注意：
 
@@ -19,24 +19,18 @@
 
 Done list
 
-- [x] `core/types/transaction.go`
-- [x] `core/types/transaction_signing.go`
-- [x] `core/genesis.go`
-
-
+- [X]  `core/types/transaction.go`
+- [X]  `core/types/transaction_signing.go`
+- [X]  `core/genesis.go`
 
 Todo list:
 
-- [ ] `core/types/receipt.go`
-- [ ] `core/bloombits`
-- [ ] 区块链学习路线文章
-- [ ] 以太坊核心数据结构文章
-
-
+- [X]  `core/types/receipt.go`
+- [ ]  `core/bloombits`
+- [ ]  区块链学习路线文章
+- [ ]  以太坊核心数据结构文章
 
 ---
-
-
 
 ## 环境准备
 
