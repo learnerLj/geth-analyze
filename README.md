@@ -27,6 +27,7 @@ Todo list:
 
 - [X]  `core/types/receipt.go`
 - [ ]  `core/bloombits`
+- [ ]  `core/forkchoice`
 - [ ]  区块链学习路线文章
 - [ ]  以太坊核心数据结构文章
 
