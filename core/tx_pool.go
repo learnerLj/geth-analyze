@@ -472,7 +472,6 @@ func (pool *TxPool) loop() {
 				prevPending, prevQueued, prevStales = pending, queued, stales
 			}
 
-
 		// Handle inactive account transaction eviction
 		//处理非活动账户退出（即定时删除超时交易） (3h)
 		case <-evict.C:
@@ -655,7 +654,6 @@ func (pool *TxPool) Pending(enforceTips bool) map[common.Address]types.Transacti
 	for addr, list := range pool.pending {
 		txs := list.Flatten()
 
-
 		// If the miner requests tip enforcement, cap the lists now
 		//矿工要求执行的话 那就把该list封顶 进行执行 （这个可能就是enforceTips的意义）
 		if enforceTips && !pool.locals.contains(addr) {
@@ -691,7 +689,7 @@ func (pool *TxPool) local() map[common.Address]types.Transactions {
 
 	//先不考虑account的事情 后面的struct{}也先不考虑
 	for addr := range pool.locals.accounts {
-		//后续的两个if区分了 peding和queue的 队列	
+		//后续的两个if区分了 peding和queue的 队列
 
 		if pending := pool.pending[addr]; pending != nil {
 			txs[addr] = append(txs[addr], pending.Flatten()...)
@@ -757,7 +755,6 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	if !local && tx.EffectiveGasTipIntCmp(pool.gasPrice, pendingBaseFee) < 0 {
 		return ErrUnderpriced
 	}
-
 
 	// Ensure the transaction adheres to nonce ordering
 	if pool.currentState.GetNonce(from) > tx.Nonce() {
@@ -950,7 +947,7 @@ func (pool *TxPool) enqueueTx(hash common.Hash, tx *types.Transaction, local boo
 //这里印证了从本地账户发出的交易都是local 即便不是从本地发出的
 func (pool *TxPool) journalTx(from common.Address, tx *types.Transaction) {
 	// Only journal if it's enabled and the transaction is local
-	if pool.journal == nil/*确定日志被启用*/ || !pool.locals.contains(from) {
+	if pool.journal == nil /*确定日志被启用*/ || !pool.locals.contains(from) {
 		return
 	}
 	//添加到磁盘中
@@ -984,7 +981,7 @@ func (pool *TxPool) promoteTx(addr common.Address, hash common.Hash, tx *types.T
 		return false
 	}
 	// Otherwise discard any previous transaction and mark this
-	//发生了替换或者加入 
+	//发生了替换或者加入
 	if old != nil {
 		pool.all.Remove(old.Hash())
 		pool.priced.Removed(1)
@@ -1009,7 +1006,7 @@ func (pool *TxPool) promoteTx(addr common.Address, hash common.Hash, tx *types.T
 // reorganization and event propagation.
 //本地账户的交易绕过定价限制 直接进行加入
 func (pool *TxPool) AddLocals(txs []*types.Transaction) []error {
-	
+
 	return pool.addTxs(txs, !pool.config.NoLocals, true)
 }
 
@@ -1190,7 +1187,7 @@ func (pool *TxPool) removeTx(hash common.Hash, outofbound bool) {
 				pool.enqueueTx(tx.Hash(), tx, false, false)
 			}
 			// Update the account nonce if needed
-			//要进行更新 
+			//要进行更新
 			pool.pendingNonces.setIfLower(addr, tx.Nonce())
 			// Reduce the pending counter
 			pendingGauge.Dec(int64(1 + len(invalids)))
@@ -1622,7 +1619,7 @@ func (pool *TxPool) truncatePending() {
 		}
 	}
 
-	//以上的消减策略并不能保证符合标准 
+	//以上的消减策略并不能保证符合标准
 	//也有可能之后的账户交易数量加一起仍大于pending要求的交易数量
 	// If still above threshold, reduce to limit or min allowance
 	if pending > pool.config.GlobalSlots && len(offenders) > 0 {
@@ -1736,17 +1733,20 @@ func (pool *TxPool) demoteUnexecutables() {
 			log.Trace("Demoting pending transaction", "hash", hash)
 
 			// Internal shuffle shouldn't touch the lookup set.
+			//内部的清洗不应该涉及到lookup
 			pool.enqueueTx(hash, tx, false, false)
 		}
+		//相应的计数器进行相关操作
 		pendingGauge.Dec(int64(len(olds) + len(drops) + len(invalids)))
-		
+
 		if pool.locals.contains(addr) {
 			localGauge.Dec(int64(len(olds) + len(drops) + len(invalids)))
 		}
 		// If there's a gap in front, alert (should never happen) and postpone all transactions
 		//如果前面有间隙 将后面的交易移交到 `queue` 中
-		//这种情况是 一开始就没有nonce对应的那笔交易 这时候进行处理 
+		//这种情况是 一开始就没有nonce对应的那笔交易 这时候进行处理（自己的想法）
 		if list.Len() > 0 && list.txs.Get(nonce) == nil {
+			//直接进行清空
 			gapped := list.Cap(0)
 			for _, tx := range gapped {
 				hash := tx.Hash()
@@ -1760,6 +1760,7 @@ func (pool *TxPool) demoteUnexecutables() {
 			blockReorgInvalidatedTx.Mark(int64(len(gapped)))
 		}
 		// Delete the entire pending entry if it became empty.
+		//如果经过上述操作 list清空了 直接删除这个账户
 		if list.Empty() {
 			delete(pool.pending, addr)
 		}
@@ -1772,6 +1773,8 @@ type addressByHeartbeat struct {
 	heartbeat time.Time
 }
 
+
+//以下操作实现了sort.Sort()接口
 type addressesByHeartbeat []addressByHeartbeat
 
 func (a addressesByHeartbeat) Len() int           { return len(a) }
