@@ -57,7 +57,7 @@ type Receipt struct {
 	Status    uint64 `json:"status"`         //交易成功/失败的状态码
 	//区块中直到这一笔交易累积使用的 gas
 	CumulativeGasUsed uint64 `json:"cumulativeGasUsed" gencodec:"required"`
-	//布隆过滤去
+	//布隆过滤器
 	Bloom Bloom `json:"logsBloom"         gencodec:"required"`
 	//合约的日志列表
 	Logs []*Log `json:"logs"              gencodec:"required"`
@@ -78,6 +78,7 @@ type Receipt struct {
 	TransactionIndex uint        `json:"transactionIndex"`
 }
 
+//用于封装和解封装，不用细看
 type receiptMarshaling struct {
 	Type              hexutil.Uint64
 	PostState         hexutil.Bytes
@@ -130,7 +131,7 @@ type v3StoredReceiptRLP struct {
 	GasUsed           uint64
 }
 
-//以及废弃的方法，用于生成空的收据，现在多直接用结构体赋值完成
+//已经废弃的方法，用于生成空的收据，现在多直接用结构体赋值完成
 
 // NewReceipt creates a barebone transaction receipt, copying the init fields.
 // Deprecated: create receipts using a struct literal instead.
@@ -147,6 +148,8 @@ func NewReceipt(root []byte, failed bool, cumulativeGasUsed uint64) *Receipt {
 	}
 	return r
 }
+
+//编码解码部分，暂时不细看，大同小异
 
 // EncodeRLP implements rlp.Encoder, and flattens the consensus fields of a receipt
 // into an RLP stream. If no post state is present, byzantium fork is assumed.
@@ -255,6 +258,7 @@ func (r *Receipt) decodeTyped(b []byte) error {
 	}
 }
 
+//设置收据的值，包括 RLP 编码的状态指示
 func (r *Receipt) setFromRLP(data receiptRLP) error {
 	r.CumulativeGasUsed, r.Bloom, r.Logs = data.CumulativeGasUsed, data.Bloom, data.Logs
 	return r.setStatus(data.PostStateOrStatus)
@@ -274,7 +278,7 @@ func (r *Receipt) setStatus(postStateOrStatus []byte) error {
 	return nil
 }
 
-// 设置状态码
+// 设置 RLP 状态码
 func (r *Receipt) statusEncoding() []byte {
 	if len(r.PostState) == 0 {
 		if r.Status == ReceiptStatusFailed {
@@ -297,6 +301,8 @@ func (r *Receipt) Size() common.StorageSize {
 	}
 	return size
 }
+
+//以下是对 收据中将存储的部分的编码、解码
 
 // ReceiptForStorage is a wrapper around a Receipt that flattens and parses the
 // entire content of a receipt, as opposed to only the consensus fields originally.
@@ -395,6 +401,8 @@ func decodeV3StoredReceiptRLP(r *ReceiptForStorage, blob []byte) error {
 	return nil
 }
 
+//收据列表的处理
+
 // Receipts implements DerivableList for receipts.
 type Receipts []*Receipt
 
@@ -420,6 +428,8 @@ func (rs Receipts) EncodeIndex(i int, w *bytes.Buffer) {
 		// to the block.
 	}
 }
+
+//根据连配置、区块哈希、区块高度、交易列表生成收据列表
 
 // DeriveFields fills the receipts with their computed fields based on consensus
 // data and contextual infos like containing block and transactions.
