@@ -45,7 +45,7 @@ const (
 	// takes up based on its size. The slots are used as DoS protection, ensuring
 	// that validating a new transaction remains a constant operation (in reality
 	// O(maxslots), where max slots are 4 currently).
-	txSlotSize = 32 * 1024
+	txSlotSize = 32 * 1024//32KB
 
 	// txMaxSize is the maximum size a single transaction can have. This field has
 	// non-trivial consequences: larger transactions are significantly harder and
@@ -142,10 +142,10 @@ var (
 type TxStatus uint
 
 const (
-	TxStatusUnknown TxStatus = iota
-	TxStatusQueued
-	TxStatusPending
-	TxStatusIncluded
+	TxStatusUnknown TxStatus = iota//0
+	TxStatusQueued//1
+	TxStatusPending//2
+	TxStatusIncluded//3
 )
 
 // blockChain provides the state of blockchain and current gas limit to do
@@ -318,7 +318,7 @@ type TxPool struct {
 	changesSinceReorg int // A counter for how many drops we've performed in-between reorg.
 }
 
-//意思是交易池收到替换请求？？？（待验证）
+//意思是交易池收到替换请求
 type txpoolResetRequest struct {
 	oldHead, newHead *types.Header
 }
@@ -350,7 +350,7 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 		initDoneCh:      make(chan struct{}),
 		gasPrice:        new(big.Int).SetUint64(config.PriceLimit),
 	}
-	//newAccountSet 使用关联的签名者创建新地址集，用于sender派生。
+	//newAccountSet初始化本地账户
 	pool.locals = newAccountSet(pool.signer)
 	for _, addr := range config.Locals {
 		log.Info("Setting new local account", "address", addr)
@@ -1107,11 +1107,13 @@ func (pool *TxPool) addTxsLocked(txs []*types.Transaction, local bool) ([]error,
 	for i, tx := range txs {
 		replaced, err := pool.add(tx, local)
 		errs[i] = err
-		//加入交易池成功并且没有替换老交易
+		//加入交易池成功并且没有替换老交易 
+		//这个意思就是加入进了queue队列 而并不是替换了pending队列中的交易
 		if err == nil && !replaced {
 			dirty.addTx(tx)
 		}
 	}
+	//计数器进行相关的处理操作
 	validTxMeter.Mark(int64(len(dirty.accounts)))
 	return errs, dirty
 }
@@ -1254,6 +1256,7 @@ func (pool *TxPool) scheduleReorgLoop() {
 	)
 	for {
 		// Launch next background reorg if needed
+		//初始化bool默认是false 所以lanuchRun开始的时候是false
 		if curDone == nil && launchNextRun {
 			// Run the background reorg and announcements
 			go pool.runReorg(nextDone, reset, dirtyAccounts, queuedEvents)
@@ -1267,6 +1270,7 @@ func (pool *TxPool) scheduleReorgLoop() {
 		}
 
 		select {
+			//检测是否有reset的要求
 		case req := <-pool.reqResetCh:
 			// Reset request: update head if request is already pending.
 			if reset == nil {
@@ -1311,7 +1315,9 @@ func (pool *TxPool) scheduleReorgLoop() {
 }
 
 // runReorg runs reset and promoteExecutables on behalf of scheduleReorgLoop.
+//注意events是排队的队列
 func (pool *TxPool) runReorg(done chan struct{}, reset *txpoolResetRequest, dirtyAccounts *accountSet, events map[common.Address]*txSortedMap) {
+	//这个函数计量总共需要多少时间继续重组
 	defer func(t0 time.Time) {
 		// reorgDurationTimer measures how long time a txpool reorg takes.
 		reorgDurationTimer.Update(time.Since(t0))
@@ -1319,6 +1325,7 @@ func (pool *TxPool) runReorg(done chan struct{}, reset *txpoolResetRequest, dirt
 	defer close(done)
 
 	var promoteAddrs []common.Address
+	//不重置的话进行promote
 	if dirtyAccounts != nil && reset == nil {
 		// Only dirty accounts need to be promoted, unless we're resetting.
 		// For resets, all addresses in the tx queue will be promoted and
@@ -1326,11 +1333,13 @@ func (pool *TxPool) runReorg(done chan struct{}, reset *txpoolResetRequest, dirt
 		promoteAddrs = dirtyAccounts.flatten()
 	}
 	pool.mu.Lock()
+	//reset
 	if reset != nil {
 		// Reset from the old head to the new, rescheduling any reorged transactions
 		pool.reset(reset.oldHead, reset.newHead)
 
 		// Nonces were reset, discard any events that became stale
+		//就是丢掉nonce小于当前账户的nonce的交易
 		for addr := range events {
 			events[addr].Forward(pool.pendingNonces.get(addr))
 			if events[addr].Len() == 0 {
@@ -1352,6 +1361,7 @@ func (pool *TxPool) runReorg(done chan struct{}, reset *txpoolResetRequest, dirt
 	if reset != nil {
 		pool.demoteUnexecutables()
 		if reset.newHead != nil && pool.chainconfig.IsLondon(new(big.Int).Add(reset.newHead.Number, big.NewInt(1))) {
+			//更新basefee
 			pendingBaseFee := misc.CalcBaseFee(pool.chainconfig, reset.newHead)
 			pool.priced.SetBaseFee(pendingBaseFee)
 		}
@@ -1773,7 +1783,6 @@ type addressByHeartbeat struct {
 	heartbeat time.Time
 }
 
-
 //以下操作实现了sort.Sort()接口
 type addressesByHeartbeat []addressByHeartbeat
 
@@ -1783,6 +1792,7 @@ func (a addressesByHeartbeat) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 
 // accountSet is simply a set of addresses to check for existence, and a signer
 // capable of deriving addresses from transactions.
+//两个功能 一是检查地址是否存在 二是签名者能否导出来地址
 type accountSet struct {
 	accounts map[common.Address]struct{}
 	signer   types.Signer
@@ -1791,14 +1801,17 @@ type accountSet struct {
 
 // newAccountSet creates a new address set with an associated signer for sender
 // derivations.
+//addrs是初始的账户
 func newAccountSet(signer types.Signer, addrs ...common.Address) *accountSet {
 	as := &accountSet{
 		accounts: make(map[common.Address]struct{}),
 		signer:   signer,
 	}
+	//逐个加入地址
 	for _, addr := range addrs {
 		as.add(addr)
 	}
+	//返回创建的AccountSet
 	return as
 }
 
@@ -1836,6 +1849,7 @@ func (as *accountSet) addTx(tx *types.Transaction) {
 
 // flatten returns the list of addresses within this set, also caching it for later
 // reuse. The returned slice should not be changed!
+//将accountSet中的地址展平出来
 func (as *accountSet) flatten() []common.Address {
 	if as.cache == nil {
 		accounts := make([]common.Address, 0, len(as.accounts))
@@ -1850,8 +1864,10 @@ func (as *accountSet) flatten() []common.Address {
 // merge adds all addresses from the 'other' set into 'as'.
 func (as *accountSet) merge(other *accountSet) {
 	for addr := range other.accounts {
+		//将两者进行合并
 		as.accounts[addr] = struct{}{}
 	}
+	//由于新的加入 原来的cashe已经失效了 置为nil
 	as.cache = nil
 }
 
@@ -1868,15 +1884,16 @@ func (as *accountSet) merge(other *accountSet) {
 // This lookup set combines the notion of "local transactions", which is useful
 // to build upper-level structure.
 type txLookup struct {
-	slots   int
-	lock    sync.RWMutex
-	locals  map[common.Hash]*types.Transaction
-	remotes map[common.Hash]*types.Transaction
+	slots   int                                //交易数量
+	lock    sync.RWMutex                       //锁
+	locals  map[common.Hash]*types.Transaction //本地交易集合
+	remotes map[common.Hash]*types.Transaction //远程交易集合
 }
 
 // newTxLookup returns a new txLookup structure.
 func newTxLookup() *txLookup {
 	return &txLookup{
+		//进行初始化
 		locals:  make(map[common.Hash]*types.Transaction),
 		remotes: make(map[common.Hash]*types.Transaction),
 	}
@@ -1914,6 +1931,7 @@ func (t *txLookup) Get(hash common.Hash) *types.Transaction {
 		return tx
 	}
 	return t.remotes[hash]
+	//如果不存在的话就是返回nil 以下同理
 }
 
 // GetLocal returns a transaction if it exists in the lookup, or nil if not found.
