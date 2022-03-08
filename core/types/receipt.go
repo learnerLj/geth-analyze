@@ -434,9 +434,10 @@ func (rs Receipts) EncodeIndex(i int, w *bytes.Buffer) {
 // DeriveFields fills the receipts with their computed fields based on consensus
 // data and contextual infos like containing block and transactions.
 func (rs Receipts) DeriveFields(config *params.ChainConfig, hash common.Hash, number uint64, txs Transactions) error {
-	signer := MakeSigner(config, new(big.Int).SetUint64(number))
+	signer := MakeSigner(config, new(big.Int).SetUint64(number)) //根据链配置和区块高度返回签名器
 
 	logIndex := uint(0)
+	//一个交易对应一个收据
 	if len(txs) != len(rs) {
 		return errors.New("transaction and receipt count mismatch")
 	}
@@ -456,12 +457,16 @@ func (rs Receipts) DeriveFields(config *params.ChainConfig, hash common.Hash, nu
 			from, _ := Sender(signer, txs[i])
 			rs[i].ContractAddress = crypto.CreateAddress(from, txs[i].Nonce())
 		}
+		//获取这笔交易的 gasUsed
+
 		// The used gas can be calculated based on previous r
 		if i == 0 {
 			rs[i].GasUsed = rs[i].CumulativeGasUsed
 		} else {
 			rs[i].GasUsed = rs[i].CumulativeGasUsed - rs[i-1].CumulativeGasUsed
 		}
+		//写入日志
+
 		// The derived log fields can simply be set from the block and transaction
 		for j := 0; j < len(rs[i].Logs); j++ {
 			rs[i].Logs[j].BlockNumber = number

@@ -21,13 +21,17 @@ Done list
 
 - [X]  `core/types/transaction.go`
 - [X]  `core/types/transaction_signing.go`
-- [X]  `core/genesis.go`
+- [x]  `core/genesis.go`
+- [x]  `core/types/legacy_tx.go`
+- [x]  `core/types/receipt.go`
+- [x]  `core/types/access_list_tx.go`
+- [x]  `core/types/dynamic_fee_tx.go`
 
 Todo list:
 
-- [X]  `core/types/receipt.go`
 - [ ]  `core/bloombits`
 - [ ]  `core/forkchoice`
+- [ ]  `core/types/log.go`
 - [ ]  区块链学习路线文章
 - [ ]  以太坊核心数据结构文章
 - [ ]  `core/tx_pool.go`

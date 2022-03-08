@@ -27,6 +27,8 @@ import (
 // AccessList is an EIP-2930 access list.
 type AccessList []AccessTuple
 
+//访问列表定义为地址和存储 key 的元组，存储中的 key 是哈希
+
 // AccessTuple is the element type of an access list.
 type AccessTuple struct {
 	Address     common.Address `json:"address"        gencodec:"required"`
@@ -41,6 +43,8 @@ func (al AccessList) StorageKeys() int {
 	}
 	return sum
 }
+
+//含交易列表的交易，相对于传统交易多了 AccessList
 
 // AccessListTx is the data of EIP-2930 access list transactions.
 type AccessListTx struct {

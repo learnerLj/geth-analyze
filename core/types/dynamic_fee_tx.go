@@ -22,6 +22,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
+//动态交易类型在原来的交易的基础上添加了 GasTipCap、GasFeeCap、AccessList
+//具体字段在介绍交易时说明过了。
+
 type DynamicFeeTx struct {
 	ChainID    *big.Int
 	Nonce      uint64

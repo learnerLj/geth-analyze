@@ -22,6 +22,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
+//传统的交易，主要是它的赋值操作
+
 // LegacyTx is the transaction data of regular Ethereum transactions.
 type LegacyTx struct {
 	Nonce    uint64          // nonce of sender account
@@ -30,7 +32,8 @@ type LegacyTx struct {
 	To       *common.Address `rlp:"nil"` // nil means contract creation
 	Value    *big.Int        // wei amount
 	Data     []byte          // contract invocation input data
-	V, R, S  *big.Int        // signature values
+	//除了下面的签名，上面的参数都可以发送时确定
+	V, R, S *big.Int // signature values
 }
 
 // NewTransaction creates an unsigned legacy transaction.

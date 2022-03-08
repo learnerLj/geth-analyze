@@ -26,6 +26,8 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
+//主要是密码学的哈希器
+
 // hasherPool holds LegacyKeccak256 hashers for rlpHash.
 var hasherPool = sync.Pool{
 	New: func() interface{} { return sha3.NewLegacyKeccak256() },
