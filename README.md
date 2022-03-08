@@ -31,7 +31,7 @@ Todo list:
 
 - [ ]  `core/bloombits`
 - [ ]  `core/forkchoice`
-- [ ]  `core/types/log.go`
+- [x]  `core/types/log.go`
 - [ ]  区块链学习路线文章
 - [ ]  以太坊核心数据结构文章
 - [ ]  `core/tx_pool.go`

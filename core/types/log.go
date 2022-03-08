@@ -32,6 +32,11 @@ type Log struct {
 	// Consensus fields:
 	// address of the contract that generated the event
 	Address common.Address `json:"address" gencodec:"required"`
+
+	//topics 是特殊的数据结构，它在以太坊上的存储方式和一般的日志不同，
+	//因为它包含了 indexed 字段的特殊日志，需要便于检索。
+	//这里是 topics 的索引，查找对应的值
+
 	// list of topics provided by the contract.
 	Topics []common.Hash `json:"topics" gencodec:"required"`
 	// supplied by the contract, usually ABI-encoded
@@ -62,6 +67,7 @@ type logMarshaling struct {
 	Index       hexutil.Uint
 }
 
+//日志中需要编码的部分
 type rlpLog struct {
 	Address common.Address
 	Topics  []common.Hash
