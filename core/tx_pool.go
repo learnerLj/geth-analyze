@@ -58,7 +58,7 @@ var (
 	// ErrAlreadyKnown is returned if the transactions is already contained
 	// within the pool.
 
-	//交易池中已经存在的 错误处理
+	//交易池中已经存在的该  hash 对应的交易 的相关错误处理
 	ErrAlreadyKnown = errors.New("already known")
 
 	// ErrInvalidSender is returned if the transaction contains an invalid signature.
