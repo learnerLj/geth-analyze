@@ -26,6 +26,7 @@ Done list
 - [x]  `core/types/receipt.go`
 - [x]  `core/types/access_list_tx.go`
 - [x]  `core/types/dynamic_fee_tx.go`
+- [x]  `core/tx_pool.go`
 
 Todo list:
 
@@ -34,7 +35,7 @@ Todo list:
 - [x]  `core/types/log.go`
 - [ ]  区块链学习路线文章
 - [ ]  以太坊核心数据结构文章
-- [ ]  `core/tx_pool.go`
+- [ ]  `txpool.go`阅读笔记
 - [ ]  `core/tx_list.go`
 
 ---
