@@ -19,6 +19,8 @@
 
 Done list
 
+- [x] `contracts`
+
 - [X]  `core/types/transaction.go`
 - [X]  `core/types/transaction_signing.go`
 - [x]  `core/genesis.go`
@@ -30,9 +32,9 @@ Done list
 Todo list:
 
 - [ ]  `core/bloombits`
-- [ ]  `core/forkchoice`
+- [x]  `core/forkchoice`
 - [x]  `core/types/log.go`
-- [ ]  区块链学习路线文章
+- [x]  区块链学习路线文章
 - [ ]  以太坊核心数据结构文章
 - [ ]  `core/tx_pool.go`
 - [ ]  `core/tx_list.go`
