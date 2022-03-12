@@ -31,6 +31,7 @@ import (
 
 // nonceHeap is a heap.Interface implementation over 64bit unsigned integers for
 // retrieving sorted transactions from the possibly gapped future queue.
+//heap的整个实现过程
 type nonceHeap []uint64
 
 func (h nonceHeap) Len() int           { return len(h) }
@@ -38,6 +39,7 @@ func (h nonceHeap) Less(i, j int) bool { return h[i] < h[j] }
 func (h nonceHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
 
 func (h *nonceHeap) Push(x interface{}) {
+	//进行类型断言
 	*h = append(*h, x.(uint64))
 }
 
@@ -52,6 +54,7 @@ func (h *nonceHeap) Pop() interface{} {
 // txSortedMap is a nonce->transaction hash map with a heap based index to allow
 // iterating over the contents in a nonce-incrementing way.
 type txSortedMap struct {
+	//建立一个nonce->transaction的map
 	items map[uint64]*types.Transaction // Hash map storing the transaction data
 	index *nonceHeap                    // Heap of nonces of all the stored transactions (non-strict mode)
 	cache types.Transactions            // Cache of the transactions already sorted
@@ -74,6 +77,7 @@ func (m *txSortedMap) Get(nonce uint64) *types.Transaction {
 // index. If a transaction already exists with the same nonce, it's overwritten.
 func (m *txSortedMap) Put(tx *types.Transaction) {
 	nonce := tx.Nonce()
+	//检查一下是否存在
 	if m.items[nonce] == nil {
 		heap.Push(m.index, nonce)
 	}
@@ -83,16 +87,20 @@ func (m *txSortedMap) Put(tx *types.Transaction) {
 // Forward removes all transactions from the map with a nonce lower than the
 // provided threshold. Every removed transaction is returned for any post-removal
 // maintenance.
+//threshold=>门槛 阈值
 func (m *txSortedMap) Forward(threshold uint64) types.Transactions {
 	var removed types.Transactions
 
 	// Pop off heap items until the threshold is reached
 	for m.index.Len() > 0 && (*m.index)[0] < threshold {
+		//类型断言
 		nonce := heap.Pop(m.index).(uint64)
 		removed = append(removed, m.items[nonce])
+		//从map进行删除
 		delete(m.items, nonce)
 	}
 	// If we had a cached order, shift the front
+	//删除掉已被移除的交易
 	if m.cache != nil {
 		m.cache = m.cache[len(removed):]
 	}
@@ -150,8 +158,11 @@ func (m *txSortedMap) Cap(threshold int) types.Transactions {
 	// Otherwise gather and drop the highest nonce'd transactions
 	var drops types.Transactions
 
+	//nonceheap同时实现了heap.Interface和sort.Interface两个接口
+	//所以这里可以直接调用sort.Sort()的方法
 	sort.Sort(*m.index)
 	for size := len(m.items); size > threshold; size-- {
+		//删除最高的nonce
 		drops = append(drops, m.items[(*m.index)[size-1]])
 		delete(m.items, (*m.index)[size-1])
 	}
@@ -193,7 +204,6 @@ func (m *txSortedMap) Remove(nonce uint64) bool {
 // Note, all transactions with nonces lower than start will also be returned to
 // prevent getting into and invalid state. This is not something that should ever
 // happen but better to be self correcting than failing!
-//ready()这里要着重讲一下 在md文档中
 func (m *txSortedMap) Ready(start uint64) types.Transactions {
 	// Short circuit if no transactions are available
 	if m.index.Len() == 0 || (*m.index)[0] > start {
@@ -320,7 +330,7 @@ func (l *txList) Add(tx *types.Transaction, priceBump uint64) (bool, *types.Tran
 	l.txs.Put(tx)
 	//Cost returns gas * gasPrice + value.
 
-	//这里不是特别理解 为啥要统计最高的花费（等下看）
+	//进行最高花费的更新
 	if cost := tx.Cost(); l.costcap.Cmp(cost) < 0 {
 		l.costcap = cost
 	}
@@ -348,6 +358,7 @@ func (l *txList) Forward(threshold uint64) types.Transactions {
 // the newly invalidated transactions.
 func (l *txList) Filter(costLimit *big.Int, gasLimit uint64) (types.Transactions, types.Transactions) {
 	// If all transactions are below the threshold, short circuit
+	//先行判断是否符合标准 若符合就直接返回
 	if l.costcap.Cmp(costLimit) <= 0 && l.gascap <= gasLimit {
 		return nil, nil
 	}
@@ -366,6 +377,7 @@ func (l *txList) Filter(costLimit *big.Int, gasLimit uint64) (types.Transactions
 	// If the list was strict, filter anything above the lowest nonce
 	if l.strict {
 		lowest := uint64(math.MaxUint64)
+		//从removed中获取最小的nonce
 		for _, tx := range removed {
 			if nonce := tx.Nonce(); lowest > nonce {
 				lowest = nonce
