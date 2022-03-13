@@ -29,8 +29,11 @@ import (
 type txNoncer struct {
 	fallback *state.StateDB
 	nonces   map[common.Address]uint64
+	//互斥锁 进行加锁操作 保证安全
 	lock     sync.Mutex
 }
+
+//进行初始化 注意fallback是直接进行的copy 而nonces直接初始化为空map
 
 // newTxNoncer creates a new virtual state database to track the pool nonces.
 func newTxNoncer(statedb *state.StateDB) *txNoncer {
@@ -42,6 +45,7 @@ func newTxNoncer(statedb *state.StateDB) *txNoncer {
 
 // get returns the current nonce of an account, falling back to a real state
 // database if the account is unknown.
+//
 func (txn *txNoncer) get(addr common.Address) uint64 {
 	// We use mutex for get operation is the underlying
 	// state will mutate db even for read access.
@@ -56,6 +60,7 @@ func (txn *txNoncer) get(addr common.Address) uint64 {
 
 // set inserts a new virtual nonce into the virtual state database to be returned
 // whenever the pool requests it instead of reaching into the real state database.
+//赋值即可
 func (txn *txNoncer) set(addr common.Address, nonce uint64) {
 	txn.lock.Lock()
 	defer txn.lock.Unlock()
@@ -65,6 +70,7 @@ func (txn *txNoncer) set(addr common.Address, nonce uint64) {
 
 // setIfLower updates a new virtual nonce into the virtual state database if the
 // the new one is lower.
+//将本地址对应的`nonce`与给的`nonce`进行对比，更新为两者之间最小的那个`nonce`
 func (txn *txNoncer) setIfLower(addr common.Address, nonce uint64) {
 	txn.lock.Lock()
 	defer txn.lock.Unlock()
@@ -79,6 +85,7 @@ func (txn *txNoncer) setIfLower(addr common.Address, nonce uint64) {
 }
 
 // setAll sets the nonces for all accounts to the given map.
+//复制即可
 func (txn *txNoncer) setAll(all map[common.Address]uint64) {
 	txn.lock.Lock()
 	defer txn.lock.Unlock()

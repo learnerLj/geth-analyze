@@ -1923,6 +1923,7 @@ func (t *txLookup) Range(f func(hash common.Hash, tx *types.Transaction, local b
 }
 
 // Get returns a transaction if it exists in the lookup, or nil if not found.
+//返回对应的交易
 func (t *txLookup) Get(hash common.Hash) *types.Transaction {
 	t.lock.RLock()
 	defer t.lock.RUnlock()
