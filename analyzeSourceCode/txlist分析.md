@@ -201,5 +201,5 @@ type txPricedList struct {
 
 
 
-现在理解不来为何 `priceHeap`里要有`urgent 和 floating`这两个 ，注意：应该是新增的，网上找不到资料； 等小组讨论斟酌；
+现在理解不来为何 `priceHeap`里要有`urgent 和 floating`这两个 ，（注意：应该是新增的，网上找不到资料；）
 

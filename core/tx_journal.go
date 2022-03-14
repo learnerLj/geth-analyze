@@ -58,10 +58,12 @@ func newTxJournal(path string) *txJournal {
 // the specified pool.
 func (journal *txJournal) load(add func([]*types.Transaction) []error) error {
 	// Skip the parsing if the journal file doesn't exist at all
+	//没有打开则直接返回
 	if _, err := os.Stat(journal.path); os.IsNotExist(err) {
 		return nil
 	}
 	// Open the journal for loading any past transactions
+	//根据路径进行打开的相关操作
 	input, err := os.Open(journal.path)
 	if err != nil {
 		return err
