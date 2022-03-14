@@ -20,6 +20,10 @@ import (
 	"sync"
 )
 
+//以太坊的布隆过滤器总共有 2048 位，以太坊会把若干个区块分成段，段作为检索的基本单位，4096 个区块为一段。
+//checkpoint 和 时间检索也是这样。
+//下面是一个检索请求，表示在特定的一段 section 中希望匹配 2048 位的过滤器中的哪一位。
+
 // request represents a bloom retrieval task to prioritize and pull from the local
 // database or remotely from the network.
 type request struct {
@@ -27,11 +31,17 @@ type request struct {
 	bit     uint   // Bit index within the section to retrieve the vector of
 }
 
+//和上面的 request 对应，表示被检索的 bit 向量的状态（即上面提到的 2048 个比特的集合）
+//cached 缓存检索结果，用于去重
+
 // response represents the state of a requested bit-vector through a scheduler.
 type response struct {
 	cached []byte        // Cached bits to dedup multiple requests
 	done   chan struct{} // Channel to allow waiting for completion
 }
+
+//scheduler 是布隆过滤器的一次任务，在指定的区块中返回结果。
+//主要包含了查找哪一位，以及每个区块高度的结果。
 
 // scheduler handles the scheduling of bloom-filter retrieval operations for
 // entire section-batches belonging to a single bloom bit. Beside scheduling the
@@ -53,10 +63,18 @@ func newScheduler(idx uint) *scheduler {
 	}
 }
 
+//并发地分发检索任务，sections chan uint64 获取需要检索的某一段，
+//dist 表示需要分发到 schedule 的请求。
+//done 表示这次任务的结果，最后是退出的标识
+//
+//最终的效果是
+
 // run creates a retrieval pipeline, receiving section indexes from sections and
 // returning the results in the same order through the done channel. Concurrent
 // runs of the same scheduler are allowed, leading to retrieval task deduplication.
 func (s *scheduler) run(sections chan uint64, dist chan *request, done chan []byte, quit chan struct{}, wg *sync.WaitGroup) {
+	//请求和回应之间的缓冲通道，用于阻塞和控制。
+
 	// Create a forwarder channel between requests and responses of the same size as
 	// the distribution channel (since that will block the pipeline anyway).
 	pend := make(chan uint64, cap(dist))
@@ -92,18 +110,20 @@ func (s *scheduler) scheduleRequests(reqs chan uint64, dist chan *request, pend 
 	// Keep reading and scheduling section requests
 	for {
 		select {
-		case <-quit:
+		case <-quit: //收到退出信号就返回
 			return
 
-		case section, ok := <-reqs:
+		case section, ok := <-reqs: //需要检索的段
 			// New section retrieval requested
 			if !ok {
 				return
 			}
 			// Deduplicate retrieval requests
-			unique := false
+			unique := false //因为并发执行时可能一已经进入了协程，这里用于去重
 
+			//阻塞其他协程，直到这一部分完成，Unlock
 			s.lock.Lock()
+			//如果请求为空，那么设置为已完成，避免重复执行
 			if s.responses[section] == nil {
 				s.responses[section] = &response{
 					done: make(chan struct{}),
@@ -114,12 +134,14 @@ func (s *scheduler) scheduleRequests(reqs chan uint64, dist chan *request, pend 
 
 			// Schedule the section for retrieval and notify the deliverer to expect this section
 			if unique {
+				//如果对应的请求为空，但是还没有在其他协程结束，那么把结果分发出去
 				select {
 				case <-quit:
 					return
 				case dist <- &request{bit: s.bit, section: section}:
 				}
 			}
+			//如果还没有结束，那么给 pend 赋值，pend 进入阻塞状态。
 			select {
 			case <-quit:
 				return
@@ -128,6 +150,8 @@ func (s *scheduler) scheduleRequests(reqs chan uint64, dist chan *request, pend 
 		}
 	}
 }
+
+//用于分发上文执行但是未完成的任务，写入 schedule 中每个区块对应的 response
 
 // scheduleDeliveries reads section acceptance notifications and waits for them
 // to be delivered, pushing them into the output data buffer.
@@ -141,7 +165,7 @@ func (s *scheduler) scheduleDeliveries(pend chan uint64, done chan []byte, quit 
 		select {
 		case <-quit:
 			return
-
+		//结束 pend 的阻塞
 		case idx, ok := <-pend:
 			// New section retrieval pending
 			if !ok {
@@ -149,7 +173,7 @@ func (s *scheduler) scheduleDeliveries(pend chan uint64, done chan []byte, quit 
 			}
 			// Wait until the request is honoured
 			s.lock.Lock()
-			res := s.responses[idx]
+			res := s.responses[idx] //写入 response，非常关键的一步。
 			s.lock.Unlock()
 
 			select {
@@ -161,7 +185,7 @@ func (s *scheduler) scheduleDeliveries(pend chan uint64, done chan []byte, quit 
 			select {
 			case <-quit:
 				return
-			case done <- res.cached:
+			case done <- res.cached: //如果没有结束，将缓存的写入 done
 			}
 		}
 	}
