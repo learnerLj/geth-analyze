@@ -22,6 +22,9 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 )
 
+//本部分给出了三个接口
+
+
 // Validator is an interface which defines the standard for block validation. It
 // is only responsible for validating block contents, as the header validation is
 // done by the specific consensus engines.

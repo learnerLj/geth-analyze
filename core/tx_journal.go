@@ -29,6 +29,7 @@ import (
 
 // errNoActiveJournal is returned if a transaction is attempted to be inserted
 // into the journal, but no such file is currently open.
+//试图插入没有被打开的文件时就会报错
 var errNoActiveJournal = errors.New("no active journal")
 
 // devNull is a WriteCloser that just discards anything written into it. Its
@@ -37,11 +38,12 @@ var errNoActiveJournal = errors.New("no active journal")
 // being read for write.
 type devNull struct{}
 
+//devNull实现了io.writecloser接口
 func (*devNull) Write(p []byte) (n int, err error) { return len(p), nil }
 func (*devNull) Close() error                      { return nil }
 
 // txJournal is a rotating log of transactions with the aim of storing locally
-// created transactions to allow non-executed ones to survive node restarts.
+// created transactions to allow non-exe-cuted ones to survive node restarts.
 type txJournal struct {
 	path   string         // Filesystem path to store the transactions at
 	writer io.WriteCloser // Output stream to write new transactions into
@@ -58,7 +60,7 @@ func newTxJournal(path string) *txJournal {
 // the specified pool.
 func (journal *txJournal) load(add func([]*types.Transaction) []error) error {
 	// Skip the parsing if the journal file doesn't exist at all
-	//没有打开则直接返回
+	//没有该地址对应的文件则直接返回 并判断是否存在
 	if _, err := os.Stat(journal.path); os.IsNotExist(err) {
 		return nil
 	}
@@ -82,8 +84,10 @@ func (journal *txJournal) load(add func([]*types.Transaction) []error) error {
 	// appropriate progress counters. Then use this method to load all the
 	// journaled transactions in small-ish batches.
 	loadBatch := func(txs types.Transactions) {
+		//省略掉第一个下标
 		for _, err := range add(txs) {
 			if err != nil {
+				//计数器进行计量 有多少没有被成功加入进去
 				log.Debug("Failed to add journaled transaction", "err", err)
 				dropped++
 			}
@@ -106,8 +110,11 @@ func (journal *txJournal) load(add func([]*types.Transaction) []error) error {
 			break
 		}
 		// New transaction parsed, queue up for later, import if threshold is reached
+		//被成功解析后计入到queue中，或者是阈值达到 送到pending中去
+		//成功进入的计数器进行加1
 		total++
 
+		//设定为最大为1024 是考虑到交易池中最大queue只能储存1024
 		if batch = append(batch, tx); batch.Len() > 1024 {
 			loadBatch(batch)
 			batch = batch[:0]
@@ -119,6 +126,7 @@ func (journal *txJournal) load(add func([]*types.Transaction) []error) error {
 }
 
 // insert adds the specified transaction to the local disk journal.
+//当满足journal被启用&&该笔交易是local的时候会尝试进行加入磁盘
 func (journal *txJournal) insert(tx *types.Transaction) error {
 	if journal.writer == nil {
 		return errNoActiveJournal
@@ -129,16 +137,23 @@ func (journal *txJournal) insert(tx *types.Transaction) error {
 	return nil
 }
 
+//其实就是进行journal的更新
+//在 创建交易池的时候 或者是  每一个小时进行的journal循环
+
 // rotate regenerates the transaction journal based on the current contents of
 // the transaction pool.
 func (journal *txJournal) rotate(all map[common.Address]types.Transactions) error {
 	// Close the current journal (if any is open)
+	//关闭现有的journal
 	if journal.writer != nil {
 		if err := journal.writer.Close(); err != nil {
 			return err
 		}
 		journal.writer = nil
 	}
+
+	//先创建一个路径 'journal.path'+.new的文件 然后把全部的本地交易进行读取 在进行更改名字
+
 	// Generate a new journal with the contents of the current pool
 	replacement, err := os.OpenFile(journal.path+".new", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
@@ -169,6 +184,8 @@ func (journal *txJournal) rotate(all map[common.Address]types.Transactions) erro
 
 	return nil
 }
+
+//关闭journal
 
 // close flushes the transaction journal contents to disk and closes the file.
 func (journal *txJournal) close() error {
