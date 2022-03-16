@@ -36,6 +36,7 @@ Done list
 - [x]  `core/tx_journal.go`
 - [x]  `core/tx_noncer.go`
 - [x]  `core/bloombits/scheduler.go`
+- [x]  `core/state_processor.go`
 
 Todo list:
 
