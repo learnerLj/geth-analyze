@@ -108,12 +108,15 @@ func (s *scheduler) scheduleRequests(reqs chan uint64, dist chan *request, pend 
 	defer close(pend)
 
 	// Keep reading and scheduling section requests
+	//一直将 section 封装到 requests，直到收到 quit 信号
 	for {
 		select {
 		case <-quit: //收到退出信号就返回
 			return
+		case section, ok := <-reqs:
+			//如果没有收到退出信号，继续初始化 responses，
+			//将封装了段高度的请求传入 dist，再把 段高度传入 pend
 
-		case section, ok := <-reqs: //需要检索的段
 			// New section retrieval requested
 			if !ok {
 				return
@@ -151,8 +154,6 @@ func (s *scheduler) scheduleRequests(reqs chan uint64, dist chan *request, pend 
 	}
 }
 
-//用于分发上文执行但是未完成的任务，写入 schedule 中每个区块对应的 response
-
 // scheduleDeliveries reads section acceptance notifications and waits for them
 // to be delivered, pushing them into the output data buffer.
 func (s *scheduler) scheduleDeliveries(pend chan uint64, done chan []byte, quit chan struct{}, wg *sync.WaitGroup) {
@@ -167,6 +168,9 @@ func (s *scheduler) scheduleDeliveries(pend chan uint64, done chan []byte, quit 
 			return
 		//结束 pend 的阻塞
 		case idx, ok := <-pend:
+			//如果没有收到退出信号，那么将每段的缓存写入 res，并且标注这一段的检索已经完成，
+			//接着将缓存传递给 done，done 会被阻塞，直到后面的 deliver 执行。
+
 			// New section retrieval pending
 			if !ok {
 				return
@@ -185,11 +189,17 @@ func (s *scheduler) scheduleDeliveries(pend chan uint64, done chan []byte, quit 
 			select {
 			case <-quit:
 				return
-			case done <- res.cached: //如果没有结束，将缓存的写入 done
+			case done <- res.cached:
+				//这里为了阻塞，空切片无法给 done 赋值，当外部给 cached 传入值才能解除阻塞，
+				//将缓存的结果写入 done
 			}
 		}
 	}
 }
+
+//data 可以看作是 [sections][]byte，用二维数组表示这次调度的每一段对应的结果
+//deliver 函数将会在在 response 初始化并且其他协程未给 cached 赋值时，
+//给每一段的 cached 赋值，解除 scheduleDeliveries 的阻塞，将结果顺利的从 done 传出。
 
 // deliver is called by the request distributor when a reply to a request arrives.
 func (s *scheduler) deliver(sections []uint64, data [][]byte) {

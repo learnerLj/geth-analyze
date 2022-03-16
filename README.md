@@ -14,13 +14,12 @@
 注意：
 
 - 只解释部分细节，源码注释中不作过于详细的介绍，只提及所需的基础和学习的方向。
-- 对应的理论基础存放在 `analyzeSourceCode` 文件夹内，针对对应的内容，梳理脉络和实现流程。
+- 对应的理论基础和源码梳理存放在 `analyzeSourceCode` 文件夹内，针对对应的内容，梳理脉络和实现流程。
 - 保留了英文注释，对于容易理解的英文注释并未翻译成中文。
 
 Done list
 
-- [x] `core/types/bloom9.go`
-
+- [x] X
 - [x] `contracts`
 - [x] `core/forkchoice`
 - [x] `core/types/log.go`
@@ -36,6 +35,7 @@ Done list
 - [x]  `core/tx_cacher.go`
 - [x]  `core/tx_journal.go`
 - [x]  `core/tx_noncer.go`
+- [x]  `core/bloombits/scheduler.go`
 
 Todo list:
 
