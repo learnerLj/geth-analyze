@@ -25,6 +25,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
+//返回字节
 type bytesBacked interface {
 	Bytes() []byte
 }
@@ -34,7 +35,7 @@ const (
 	BloomByteLength = 256
 
 	// BloomBitLength represents the number of bits used in a header log bloom.
-	BloomBitLength = 8 * BloomByteLength
+	BloomBitLength = 8 * BloomByteLength //2048 位
 )
 
 // Bloom represents a 2048 bit bloom filter.
@@ -62,6 +63,8 @@ func (b *Bloom) Add(d []byte) {
 	b.add(d, make([]byte, 6))
 }
 
+// 添加元素
+
 // add is internal version of Add, which takes a scratch buffer for reuse (needs to be at least 6 bytes)
 func (b *Bloom) add(d []byte, buf []byte) {
 	i1, v1, i2, v2, i3, v3 := bloomValues(d, buf)
@@ -74,7 +77,7 @@ func (b *Bloom) add(d []byte, buf []byte) {
 // Note: Converting a bloom filter to a big.Int and then calling GetBytes
 // does not return the same bytes, since big.Int will trim leading zeroes
 func (b Bloom) Big() *big.Int {
-	return new(big.Int).SetBytes(b[:])
+	return new(big.Int).SetBytes(b[:]) //b[:] 是为了数据类型数组转换成切片
 }
 
 // Bytes returns the backing byte slice of the bloom
@@ -102,13 +105,13 @@ func (b *Bloom) UnmarshalText(input []byte) error {
 
 // CreateBloom creates a bloom filter out of the give Receipts (+Logs)
 func CreateBloom(receipts Receipts) Bloom {
-	buf := make([]byte, 6)
+	buf := make([]byte, 6) //因为哈希后的数据只需要前面 6 个字节
 	var bin Bloom
 	for _, receipt := range receipts {
 		for _, log := range receipt.Logs {
-			bin.add(log.Address.Bytes(), buf)
+			bin.add(log.Address.Bytes(), buf) //添加日志地址
 			for _, b := range log.Topics {
-				bin.add(b[:], buf)
+				bin.add(b[:], buf) //添加日志
 			}
 		}
 	}
@@ -137,16 +140,22 @@ func Bloom9(data []byte) []byte {
 
 // bloomValues returns the bytes (index-value pairs) to set for the given data
 func bloomValues(data []byte, hashbuf []byte) (uint, byte, uint, byte, uint, byte) {
-	sha := hasherPool.Get().(crypto.KeccakState)
+	sha := hasherPool.Get().(crypto.KeccakState) //选择 keccak-256 的哈希算法
+	//哈希函数的用法，重置缓冲区、写入需要哈希的数据、读取需要哈希的数据
 	sha.Reset()
 	sha.Write(data)
 	sha.Read(hashbuf)
 	hasherPool.Put(sha)
 	// The actual bits to flip
+	//选取索引为 1，3，5 的位置的字节，然后与0000 0111相与。
+	//假如索引为 1 的字节为 10110101，那么 1011 0101 & 0000 0111=0000 0101 也就是选择后三位的值。
+	//然后将 1 移 5位，也即为 0010 0000
 	v1 := byte(1 << (hashbuf[1] & 0x7))
 	v2 := byte(1 << (hashbuf[3] & 0x7))
 	v3 := byte(1 << (hashbuf[5] & 0x7))
 	// The indices for the bytes to OR in
+	//将哈希值的末尾和 0111 1111 1111 相与，然后按照大端的方式，将这末尾的 16 位 转换成 uint16 的值，
+	//接着向做左移动 3 位，这样 最大为FF=255，这样恰好在布隆过滤器的长度范围内。
 	i1 := BloomByteLength - uint((binary.BigEndian.Uint16(hashbuf)&0x7ff)>>3) - 1
 	i2 := BloomByteLength - uint((binary.BigEndian.Uint16(hashbuf[2:])&0x7ff)>>3) - 1
 	i3 := BloomByteLength - uint((binary.BigEndian.Uint16(hashbuf[4:])&0x7ff)>>3) - 1
