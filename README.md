@@ -19,7 +19,6 @@
 
 Done list
 
-- [x] X
 - [x] `contracts`
 - [x] `core/forkchoice`
 - [x] `core/types/log.go`
@@ -41,10 +40,11 @@ Done list
 Todo list:
 
 - [ ] `core/bloombits`
-- [ ]  以太坊核心数据结构文章
-- [ ]  `core/txpool.go`阅读笔记
-- [ ]  `core/state`包
+- [ ] 以太坊核心数据结构文章
+- [ ] `core/txpool.go`阅读笔记
+- [ ] `core/state`包
 - [ ]  `core/state_transition.go`
+- [ ]  合约安全分析之程序分析基础
 
 
 ---
@@ -397,20 +397,3 @@ Todo list:
 └── trie	//区块的重要数据结构 MPT
 ```
 
-## 参考
-
-[登链学院以太坊技术与实现](https://learnblockchain.cn/books/geth/part1/genesis.html)
-
-[geth 官方文档](https://geth.ethereum.org/docs/)
-
-[官网资源](https://ethereum.org/en/)
-
-[姚飞亮博客](https://www.yaofeiliang.com/tags/#%E5%8C%BA%E5%9D%97%E9%93%BE)
-
-[四年前大佬的源码分析](https://github.com/ZtesoftCS/go-ethereum-code-analysis)
-
-[最近底层大佬的源码分析](https://github.com/blockchainGuide/blockchainguide/tree/main/source_code_analysis/ethereum/%E4%BB%A5%E5%A4%AA%E5%9D%8A%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90)
-
-[18年的博客](https://knarfeh.com/2018/03/10/go-ethereum%20%E6%BA%90%E7%A0%81%E7%AC%94%E8%AE%B0%EF%BC%88%E6%A6%82%E8%A7%88%EF%BC%89/)
-
-[简书博客](https://www.jianshu.com/u/572268941378)、
