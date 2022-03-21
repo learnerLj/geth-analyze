@@ -45,6 +45,9 @@ func calcBloomIndexes(b []byte) bloomIndexes {
 	return idxs
 }
 
+//部分匹配。因为一次过滤可能不止一个条件，我们假设有三个条件 A, B, C，对单个条件的匹配叫做子匹配或者部分匹配。
+//bitset 表示这对单个条件的匹配结果的向量，它会在后面通过和其他条件的 bitset 取与，达到同时满足多个条件的效果。
+
 // partialMatches with a non-nil vector represents a section in which some sub-
 // matchers have already found potential matches. Subsequent sub-matchers will
 // binary AND their matches with this vector. If vector is nil, it represents a
@@ -53,6 +56,10 @@ type partialMatches struct {
 	section uint64
 	bitset  []byte
 }
+
+//匹配中用于给 request 和 response 传递结果的结构，表示一次检索任务。
+//bit 表示检索的位，调度器也是按位安排检索的。bitsets 表示 Sections 中每个检索结果向量
+//构成的矩阵。
 
 // Retrieval represents a request for retrieval task assignments for a given
 // bit with the given number of fetch elements, or a response for such a request.
@@ -65,9 +72,12 @@ type Retrieval struct {
 	Sections []uint64
 	Bitsets  [][]byte
 
+	//用于 eth 协议终止过滤的匹配操作
 	Context context.Context
 	Error   error
 }
+
+//匹配器，通过流水线的方式，承担二进制向量取与、或的任务，并且保留可能包含检索内容的区块。
 
 // Matcher is a pipelined system of schedulers and logic matchers which perform
 // binary AND/OR operations on the bit-streams, creating a stream of potential
