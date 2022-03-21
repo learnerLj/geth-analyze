@@ -83,15 +83,21 @@ type Retrieval struct {
 // binary AND/OR operations on the bit-streams, creating a stream of potential
 // blocks to inspect for data content.
 type Matcher struct {
+	//段的大小，默认 4096 个区块
 	sectionSize uint64 // Size of the data batches to filter on
 
-	filters    [][]bloomIndexes    // Filter the system is matching for
+	filters [][]bloomIndexes // Filter the system is matching for
+	//一次匹配工作包括多个调度器，因为调度器是按照一个位检索的，一次匹配至少检索 3 个位
 	schedulers map[uint]*scheduler // Retrieval schedulers for loading bloom bits
 
-	retrievers chan chan uint       // Retriever processes waiting for bit allocations
-	counters   chan chan uint       // Retriever processes waiting for task count reports
+	//当需要检索的位置分配好了后，传递检索任务
+	retrievers chan chan uint // Retriever processes waiting for bit allocations
+	//当一次检索任务完成时，传递当前完成的任务数量
+	counters chan chan uint // Retriever processes waiting for task count reports
+	//当检索任务分配好后，传递检索任务
 	retrievals chan chan *Retrieval // Retriever processes waiting for task allocations
-	deliveries chan *Retrieval      // Retriever processes waiting for task response deliveries
+	//当检索完成后，传递任务的结果 response
+	deliveries chan *Retrieval // Retriever processes waiting for task response deliveries
 
 	running uint32 // Atomic flag whether a session is live or not
 }
