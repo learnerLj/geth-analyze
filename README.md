@@ -40,7 +40,9 @@ Done list
 Todo list:
 
 - [ ] `core/bloombits`
+- [ ] 合约审计工具说明和使用
 - [ ] 以太坊核心数据结构文章
+- [ ] 合约审计工具
 - [ ] `core/txpool.go`阅读笔记
 - [ ] `core/state`包
 - [ ]  `core/state_transition.go`
