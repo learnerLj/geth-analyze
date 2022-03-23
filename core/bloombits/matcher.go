@@ -96,7 +96,7 @@ type Matcher struct {
 	retrievals chan chan *Retrieval // Retriever processes waiting for task allocations
 	//当检索完成后，传递任务的结果 response
 	deliveries chan *Retrieval // Retriever processes waiting for task response deliveries
-	// 指定是否运行的原子变量
+	// 指定是否运行的原子变量，为了并发安全
 	running uint32 // Atomic flag whether a session is live or not
 }
 
@@ -157,7 +157,7 @@ func NewMatcher(sectionSize uint64, filters [][][]byte) *Matcher {
 	return m
 }
 
-//对这bloom 的某一位新建检索任务，如果它之前还不存在。如果已经存在，那么使用已存在检索任务。
+//对这 bloom 的某一位新建检索任务，如果它之前还不存在。如果已经存在，那么使用已存在检索任务。
 
 // addScheduler adds a bit stream retrieval scheduler for the given bit index if
 // it has not existed before. If the bit is already selected for filtering, the
@@ -170,7 +170,7 @@ func (m *Matcher) addScheduler(idx uint) {
 }
 
 //对指定范围的区块执行匹配操作，返回结果（一串比特流），知道这个范围内的区块的匹配任务都完成
-// begin, end 指区块范围
+// begin, end 指区块范围，处理时会除以 sectionSize 转化成段高度
 //
 
 // Start starts the matching process and returns a stream of bloom matches in
@@ -184,7 +184,7 @@ func (m *Matcher) Start(ctx context.Context, begin, end uint64, results chan uin
 	if atomic.SwapUint32(&m.running, 1) == 1 {
 		return nil, errors.New("matcher already running")
 	}
-	//最后将 running 设置为 0，表示已经完成。
+	//执行完后后将 running 设置为 0，表示已经完成。
 	defer atomic.StoreUint32(&m.running, 0)
 
 	//新建会话，用于管理这次日志过滤的生命周期
@@ -195,6 +195,7 @@ func (m *Matcher) Start(ctx context.Context, begin, end uint64, results chan uin
 		quit:    make(chan struct{}),
 		ctx:     ctx,
 	}
+	//初始化调度器，为了在重新开始时保证之前的任务都终止。
 	for _, scheduler := range m.schedulers {
 		scheduler.reset()
 	}
@@ -274,7 +275,7 @@ func (m *Matcher) run(begin, end uint64, buffer int, session *MatcherSession) ch
 
 		//将区块高度转化成 section 高度，因为它是匹配的最小单元。
 		for i := begin / m.sectionSize; i <= end/m.sectionSize; i++ {
-			//初始化部分匹配，二进制全 1，表示完全匹配
+			//初始化部分匹配结果，二进制全 1，表示完全匹配
 			select {
 			case <-session.quit:
 				return
@@ -286,7 +287,7 @@ func (m *Matcher) run(begin, end uint64, buffer int, session *MatcherSession) ch
 	next := source
 	dist := make(chan *request, buffer)
 
-	//将部分匹配的结果接受者next，结果通信的 dist，需要检索某一位的多个元素的序列，检索任务的一次会话 传入子匹配函数中
+	//将部分匹配的结果接受者next，请求 dist，需要检索某一位的多个元素的序列，检索任务的一次会话 传入子匹配函数中
 	for _, bloom := range m.filters {
 		next = m.subMatch(next, dist, bloom, session)
 	}
@@ -305,13 +306,13 @@ func (m *Matcher) run(begin, end uint64, buffer int, session *MatcherSession) ch
 // that address/topic, and binary AND-ing those vectors together.
 func (m *Matcher) subMatch(source chan *partialMatches, dist chan *request, bloom []bloomIndexes, session *MatcherSession) chan *partialMatches {
 	// Start the concurrent schedulers for each bit required by the bloom filter
-	sectionSources := make([][3]chan uint64, len(bloom))
+	sectionSources := make([][3]chan uint64, len(bloom)) //存储表示那一段
 	sectionSinks := make([][3]chan []byte, len(bloom))
 	for i, bits := range bloom {
 		for j, bit := range bits {
 			sectionSources[i][j] = make(chan uint64, cap(source))
 			sectionSinks[i][j] = make(chan []byte, cap(source))
-
+			//这是核心之一，运行 scheduler 的调度器，将请求从 dist 传入，结果从 sectionSinks[i][j]作为结果传出
 			m.schedulers[bit].run(sectionSources[i][j], dist, sectionSinks[i][j], session.quit, &session.pend)
 		}
 	}
