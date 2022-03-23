@@ -37,13 +37,13 @@ type (
 		Children [17]node // Actual trie node data to encode/decode (needs custom encoder)
 		flags    nodeFlag
 	}
-	shortNode struct {
+	shortNode struct {//扩展结点
 		Key   []byte
-		Val   node
+		Val   node//可能指向叶子节点，也可能指向分支节点。
 		flags nodeFlag
 	}
-	hashNode  []byte
-	valueNode []byte
+	hashNode  []byte//hash节点
+	valueNode []byte//叶子节点值 最终还是被包装在shortNode中
 )
 
 // nilValueNode is used when collapsing internal trie nodes for hashing, since

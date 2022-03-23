@@ -47,6 +47,8 @@ import (
 	lru "github.com/hashicorp/golang-lru"
 )
 
+
+//先不管等用到再看
 var (
 	headBlockGauge     = metrics.NewRegisteredGauge("chain/head/block", nil)
 	headHeaderGauge    = metrics.NewRegisteredGauge("chain/head/header", nil)
@@ -162,6 +164,7 @@ type BlockChain struct {
 	chainConfig *params.ChainConfig // Chain & network configuration
 	cacheConfig *CacheConfig        // Cache configuration for pruning
 
+	//底层数据库
 	db     ethdb.Database // Low level persistent database to store final content in
 	snaps  *snapshot.Tree // Snapshot tree for fast trie leaf access
 	triegc *prque.Prque   // Priority queue mapping block numbers to tries to gc
@@ -174,7 +177,9 @@ type BlockChain struct {
 	//  * nil: disable tx reindexer/deleter, but still index new blocks
 	txLookupLimit uint64
 
+	//只包含了区块头的区块链
 	hc            *HeaderChain
+	//很多事件的通知组件
 	rmLogsFeed    event.Feed
 	chainFeed     event.Feed
 	chainSideFeed event.Feed
@@ -182,6 +187,7 @@ type BlockChain struct {
 	logsFeed      event.Feed
 	blockProcFeed event.Feed
 	scope         event.SubscriptionScope
+	//创世区块
 	genesisBlock  *types.Block
 
 	// This mutex synchronizes chain write operations.
@@ -199,16 +205,17 @@ type BlockChain struct {
 	txLookupCache *lru.Cache     // Cache for the most recent transaction lookup data.
 	futureBlocks  *lru.Cache     // future blocks are blocks added for later processing
 
-	wg            sync.WaitGroup //
+	wg            sync.WaitGroup //互斥锁
 	quit          chan struct{}  // shutdown signal, closed in Stop.
+	//running->0 stop->1
 	running       int32          // 0 if chain is running, 1 when stopped
 	procInterrupt int32          // interrupt signaler for block processing
 
-	engine     consensus.Engine
-	validator  Validator // Block and state validator interface
-	prefetcher Prefetcher
+	engine     consensus.Engine//一致性引擎
+	validator  Validator//块和状态验证程序接口
+	prefetcher Prefetcher//预取器是预缓存事务签名和状态的接口
 	processor  Processor // Block transaction processor interface
-	vmConfig   vm.Config
+	vmConfig   vm.Config//虚拟机配置
 
 	shouldPreserve func(*types.Block) bool // Function used to determine whether should preserve the given block.
 }
@@ -216,10 +223,13 @@ type BlockChain struct {
 // NewBlockChain returns a fully initialised block chain using information
 // available in the database. It initialises the default Ethereum Validator and
 // Processor.
+//NewBlockChain 使用数据库里面的可用信息构造了一个初始化好的区块链
+// 同时初始化了以太坊默认的验证器和处理器 (Validator and Processor)
 func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *params.ChainConfig, engine consensus.Engine, vmConfig vm.Config, shouldPreserve func(block *types.Block) bool, txLookupLimit *uint64) (*BlockChain, error) {
 	if cacheConfig == nil {
 		cacheConfig = defaultCacheConfig
 	}
+	//各种cashe进行初始化
 	bodyCache, _ := lru.New(bodyCacheLimit)
 	bodyRLPCache, _ := lru.New(bodyCacheLimit)
 	receiptsCache, _ := lru.New(receiptsCacheLimit)
@@ -231,7 +241,7 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 		chainConfig: chainConfig,
 		cacheConfig: cacheConfig,
 		db:          db,
-		triegc:      prque.New(nil),
+		triegc:      prque.New(nil),//Priority queue mapping block numbers to tries to gc
 		stateCache: state.NewDatabaseWithConfig(db, &trie.Config{
 			Cache:     cacheConfig.TrieCleanLimit,
 			Journal:   cacheConfig.TrieCleanJournal,
@@ -239,7 +249,7 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 		}),
 		quit:           make(chan struct{}),
 		chainmu:        syncx.NewClosableMutex(),
-		shouldPreserve: shouldPreserve,
+		shouldPreserve: shouldPreserve,//确定是否缓存给出的区块
 		bodyCache:      bodyCache,
 		bodyRLPCache:   bodyRLPCache,
 		receiptsCache:  receiptsCache,
@@ -258,6 +268,7 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	if err != nil {
 		return nil, err
 	}
+	//获取创世块
 	bc.genesisBlock = bc.GetBlockByNumber(0)
 	if bc.genesisBlock == nil {
 		return nil, ErrNoGenesis
@@ -271,6 +282,8 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	var txIndexBlock uint64
 
 	if bc.empty() {
+		//InitDatabaseFromFrooker用之前的缓存数据初始化空数据库。
+		//该方法迭代所有冻结的块，并将块hash->number映射注入数据库。
 		rawdb.InitDatabaseFromFreezer(bc.db)
 		// If ancient database is not empty, reconstruct all missing
 		// indices in the background.
@@ -284,13 +297,17 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	}
 
 	// Make sure the state associated with the block is available
+	//确保该块的状态是可用的
 	head := bc.CurrentBlock()
 	if _, err := state.New(head.Root(), bc.stateCache, bc.snaps); err != nil {
 		// Head state is missing, before the state recovery, find out the
 		// disk layer point of snapshot(if it's enabled). Make sure the
 		// rewound point is lower than disk layer.
 		var diskRoot common.Hash
+		//Memory allowance (MB) to use for caching snapshot entries in memory
+		//缓存大于零
 		if bc.cacheConfig.SnapshotLimit > 0 {
+			//ReadSnapshotRoot retrieves the root of the block whose state is contained in the persisted snapshot.
 			diskRoot = rawdb.ReadSnapshotRoot(bc.db)
 		}
 		if diskRoot != (common.Hash{}) {
@@ -300,7 +317,7 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 			if err != nil {
 				return nil, err
 			}
-			// Chain rewound, persist old snapshot number to indicate recovery procedure
+			// Chain rewound, persist old snapshot nu/*  */mber to indicate recovery procedure
 			if snapDisk != 0 {
 				rawdb.WriteSnapshotRecoveryNumber(bc.db, snapDisk)
 			}
