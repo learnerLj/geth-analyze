@@ -65,24 +65,28 @@ type ID struct {
 // Filter is a fork id filter to validate a remotely advertised ID.
 type Filter func(id ID) error
 
+//参数：链配置、创世区块哈希、当前分叉的区块高度
+
 // NewID calculates the Ethereum fork ID from the chain config, genesis hash, and head.
 func NewID(config *params.ChainConfig, genesis common.Hash, head uint64) ID {
 	// Calculate the starting checksum from the genesis hash
-	hash := crc32.ChecksumIEEE(genesis[:])
+	hash := crc32.ChecksumIEEE(genesis[:]) //计算创世区块校验和
 
 	// Calculate the current fork checksum and the next fork block
 	var next uint64
 	for _, fork := range gatherForks(config) {
 		if fork <= head {
 			// Fork already passed, checksum the previous hash and the fork number
-			hash = checksumUpdate(hash, fork)
+			hash = checksumUpdate(hash, fork) //将之前的分叉逐个添加进 fork_hash
 			continue
 		}
-		next = fork
+		next = fork //如果超过了当前的分叉的区块高度，那么这是即将迎来的分叉。否则 next 为 0
 		break
 	}
 	return ID{Hash: checksumToBytes(hash), Next: next}
 }
+
+//从前面设置的接口新建节点的标识
 
 // NewIDWithChain calculates the Ethereum fork ID from an existing chain instance.
 func NewIDWithChain(chain Blockchain) ID {
@@ -92,6 +96,8 @@ func NewIDWithChain(chain Blockchain) ID {
 		chain.CurrentHeader().Number.Uint64(),
 	)
 }
+
+//根据本地节点的链配置、创世区块配置和当前区块高度创建可用远程节点过滤器
 
 // NewFilter creates a filter that returns if a fork ID should be rejected or not
 // based on the local chain's status.
@@ -111,21 +117,30 @@ func NewStaticFilter(config *params.ChainConfig, genesis common.Hash) Filter {
 	return newFilter(config, genesis, head)
 }
 
+//根据本地节点的配置，创建筛选有用的远程节点的筛选器，返回了一个 Filter 函数（匿名函数会保留定义时外部变量的状态）。
+
 // newFilter is the internal version of NewFilter, taking closures as its arguments
 // instead of a chain. The reason is to allow testing it without having to simulate
 // an entire blockchain.
 func newFilter(config *params.ChainConfig, genesis common.Hash, headfn func() uint64) Filter {
 	// Calculate the all the valid fork hash and fork next combos
 	var (
+		//各种分叉的区块高度
 		forks = gatherForks(config)
-		sums  = make([][4]byte, len(forks)+1) // 0th is the genesis
+		//每个分叉的对应的累积校验和
+		sums = make([][4]byte, len(forks)+1) // 0th is the genesis
 	)
 	hash := crc32.ChecksumIEEE(genesis[:])
 	sums[0] = checksumToBytes(hash)
+
+	//整合校验和
 	for i, fork := range forks {
 		hash = checksumUpdate(hash, fork)
 		sums[i+1] = checksumToBytes(hash)
 	}
+
+	//最后一个位置作为 "哨兵"，用于方便处理
+
 	// Add two sentries to simplify the fork checks and don't require special
 	// casing the last one.
 	forks = append(forks, math.MaxUint64) // Last fork will never be passed
@@ -153,25 +168,35 @@ func newFilter(config *params.ChainConfig, genesis common.Hash, headfn func() ui
 		//   4. Reject in all other cases.
 		head := headfn()
 		for i, fork := range forks {
+			//如果当前区块高度超过了某个分叉，就继续往后检查。前面设置的哨兵的作用就是在这里跳过这个检查
+
 			// If our head is beyond this fork, continue to the next (we have a dummy
 			// fork of maxuint64 as the last item to always fail this check eventually).
 			if head >= fork {
 				continue
 			}
+			//达到了本地节点的下一个分叉区块高度
+
 			// Found the first unpassed fork block, check if our current state matches
 			// the remote checksum (rule #1).
-			if sums[i] == id.Hash {
+			if sums[i] == id.Hash { //如果匹配
 				// Fork checksum matched, check if a remote future fork block already passed
 				// locally without the local node being aware of it (rule #1a).
 				if id.Next > 0 && head >= id.Next {
+					//但是当前区块高度高于远程节点的下一个分叉高度，那么不兼容
 					return ErrLocalIncompatibleOrStale
 				}
 				// Haven't passed locally a remote-only fork, accept the connection (rule #1b).
 				return nil
 			}
+
+			//开始部分匹配。远程节点与本地节点处于不同的分叉状态，这是要求远程节点在本地节点“之前”,
+			//表现出来是远程节点的校验和是本地节点的子集
+
 			// The local and remote nodes are in different forks currently, check if the
 			// remote checksum is a subset of our local forks (rule #2).
 			for j := 0; j < i; j++ {
+				//找子集的匹配部分，并且要求远程节点接着的分叉与本地节点对应
 				if sums[j] == id.Hash {
 					// Remote checksum is a subset, validate based on the announced next fork
 					if forks[j] != id.Next {
@@ -180,6 +205,9 @@ func newFilter(config *params.ChainConfig, genesis common.Hash, headfn func() ui
 					return nil
 				}
 			}
+
+			//如果远程节点包括了当前节点的所有分叉，那么可以连接，告诉远程节点，当前节点没有完成同步
+
 			// Remote chain is not a subset of our local one, check if it's a superset by
 			// any chance, signalling that we're simply out of sync (rule #3).
 			for j := i + 1; j < len(sums); j++ {
@@ -196,6 +224,8 @@ func newFilter(config *params.ChainConfig, genesis common.Hash, headfn func() ui
 	}
 }
 
+//计算累积校验和
+
 // checksumUpdate calculates the next IEEE CRC32 checksum based on the previous
 // one and a fork block number (equivalent to CRC32(original-blob || fork)).
 func checksumUpdate(hash uint32, fork uint64) uint32 {
@@ -211,6 +241,8 @@ func checksumToBytes(hash uint32) [4]byte {
 	return blob
 }
 
+//返回本地节点所有的分叉高度
+
 // gatherForks gathers all the known forks and creates a sorted list out of them.
 func gatherForks(config *params.ChainConfig) []uint64 {
 	// Gather all the fork block numbers via reflection
@@ -221,6 +253,8 @@ func gatherForks(config *params.ChainConfig) []uint64 {
 	for i := 0; i < kind.NumField(); i++ {
 		// Fetch the next field and skip non-fork rules
 		field := kind.Field(i)
+
+		//处理链配置中的分叉区块，因为它们末尾都是 Block，而且都是 bigInt 类型
 		if !strings.HasSuffix(field.Name, "Block") {
 			continue
 		}
@@ -233,6 +267,9 @@ func gatherForks(config *params.ChainConfig) []uint64 {
 			forks = append(forks, rule.Uint64())
 		}
 	}
+
+	//数据量很小，冒泡排序也不差，区块高度需要按升序，表达分叉顺序
+
 	// Sort the fork block numbers to permit chronological XOR
 	for i := 0; i < len(forks); i++ {
 		for j := i + 1; j < len(forks); j++ {
@@ -241,6 +278,10 @@ func gatherForks(config *params.ChainConfig) []uint64 {
 			}
 		}
 	}
+
+	//处理同一个区块高度多个分叉的情况，删除前面的重复的分叉。这种情况几乎不会发生。
+	//如A、B、C 的分叉高度都是 1000，那么删除 A、B对应的区块高度。
+
 	// Deduplicate block numbers applying multiple forks
 	for i := 1; i < len(forks); i++ {
 		if forks[i] == forks[i-1] {
@@ -248,6 +289,9 @@ func gatherForks(config *params.ChainConfig) []uint64 {
 			i--
 		}
 	}
+
+	//跳过高度为 0 的分叉，因为它是写在创世区块的配置里。
+
 	// Skip any forks in block 0, that's the genesis ruleset
 	if len(forks) > 0 && forks[0] == 0 {
 		forks = forks[1:]

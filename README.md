@@ -36,13 +36,14 @@ Done list
 - [x]  `core/tx_noncer.go`
 - [x]  `core/bloombits/scheduler.go`
 - [x]  `core/state_processor.go`
+- [x]  `core/bloombits`（因为缺乏并发模型知识，未完成 `matcher`）
+- [x]  `core/forkid/forkid.go`
 
 Todo list:
 
-- [ ] `core/bloombits`
 - [ ] 合约审计工具说明和使用
 - [ ] 以太坊核心数据结构文章
-- [ ] 合约审计工具
+- [ ] `core/vm` 包
 - [ ] `core/txpool.go`阅读笔记
 - [ ] `core/state`包
 - [ ]  `core/state_transition.go`
