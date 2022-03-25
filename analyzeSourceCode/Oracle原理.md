@@ -1,3 +1,5 @@
+
+
 # Oracle
 
 oracle 翻译是预言机，英文中的意思是预卜先知，知晓消息的意思。在区块链里用于合约获取链外的数据。例如你想把比特币转换成美元，如果在链上进行，那么就需要从链外获取比特币和美元的汇率，例如[price feed oracles](https://developer.makerdao.com/feeds/)。但是以太坊是封闭的系统，直接与外界交互很容易破坏 EVM 安全性，因此才用了预言机作为中间层，沟通链上和链外。详细可见[chainlink的文档](https://chain.link/education/blockchain-oracles)和[官方文档](https://ethereum.org/en/developers/docs/oracles/)。
@@ -10,7 +12,7 @@ oracle 翻译是预言机，英文中的意思是预卜先知，知晓消息的�
 2. 链外的接口监听事件的日志。
 3. 链外接口处理事务，然后交易的方式返回数据给合约。
 
-![img](https://gitee.com/learnerLj/typora/raw/master/img/1*Cs3w9iFmhIfkyg3Kg_FzFw.png)
+![1_Cs3w9iFmhIfkyg3Kg_FzFw](http://blog-blockchain.xyz/202203260125659.png)
 
 ## oracle 实例
 
@@ -60,7 +62,7 @@ contract PriceConsumerV3 {
 
 我们采用多层的结构保证数据的可信性，只有多层结构中只要有一个正常工作，则代表 oracle 提供的数据可信。这样也避免了单一数据来源的最脆弱环节失效容易导致漏洞的问题
 
-![img](https://gitee.com/learnerLj/typora/raw/master/img/1*HCQQSCkvdaUWWG3lYYH9FA.png)
+![1_HCQQSCkvdaUWWG3lYYH9FA](http://blog-blockchain.xyz/202203260126792.png)
 
 ### 多数据源
 
