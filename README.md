@@ -1,4 +1,6 @@
-# Go Ethereum Analyze
+
+
+Go Ethereum Analyze
 
 本仓库主要面向需要阅读以太坊源码的读者，暂时只关注研究智能合约安全必需的合约执行机制。网络和共识部分也欢迎朋友补充。
 
@@ -9,7 +11,7 @@
 - [ ]  深度理解以太坊底层运行机制
 - [ ]  深度理解以太坊字节码，能够对字节码进行安全分析。
 - [ ]  提供修改源码的参考，能够修改源码以完成测试、插桩，甚至新建自己的链。
-- [ ]  提供交易动态数据分析方法，最终实现区块链平台威胁感知和攻击检测的模型。（由于需要发表论文，需要暂时保密，时机成熟后公开）
+- [ ]  提供交易动态数据分析方法，最终实现区块链平台威胁感知和攻击检测的模型。
 
 注意：
 
@@ -17,36 +19,40 @@
 - 对应的理论基础和源码梳理存放在 `analyzeSourceCode` 文件夹内，针对对应的内容，梳理脉络和实现流程。
 - 保留了英文注释，对于容易理解的英文注释并未翻译成中文。
 
-Done list
+已完成的源码解析列表
 
-- [x] `contracts`
-- [x] `core/forkchoice`
-- [x] `core/types/log.go`
-- [X]  `core/types/transaction.go`
-- [X]  `core/types/transaction_signing.go`
-- [x]  `core/genesis.go`
-- [x]  `core/types/legacy_tx.go`
-- [x]  `core/types/receipt.go`
-- [x]  `core/types/access_list_tx.go`
-- [x]  `core/types/dynamic_fee_tx.go`
-- [x]  `core/tx_pool.go`
-- [x]  `core/tx_list.go`
-- [x]  `core/tx_cacher.go`
-- [x]  `core/tx_journal.go`
-- [x]  `core/tx_noncer.go`
-- [x]  `core/bloombits/scheduler.go`
-- [x]  `core/state_processor.go`
+- [x] `contracts` 包
+- [x] `core/forkchoice.go`
+- [x] `core/types` 包
+- [x] `core/bloombits` 包(匹配器部分由于缺少并发模型知识，暂缓)
+- [x] `core/genesis.go`
+- [x] `core/tx_pool.go`
+- [x] `core/tx_list.go`
+- [x] `core/tx_cacher.go`
+- [x] `core/tx_journal.go`
+- [x] `core/tx_noncer.go`
+- [x]  `core/forkid` 包
+- [ ]  `core/blocks.go`
+- [x]  `trie`包`MPT`分析
+
+已完成的理论基础列表
+
+- [x] 区块链基础入门
+- [x] 合约安全分析之程序分析基础
+- [x] 学习路线和资源汇总
+- [x] 初步理解 EVM 的 stack、memory、storage、calldata
 
 Todo list:
 
-- [ ] `core/bloombits`
 - [ ] 合约审计工具说明和使用
+- [ ] 合约安全分析之抽象
+- [ ] 以太坊黄皮书中 EVM 设计思路解读
 - [ ] 以太坊核心数据结构文章
-- [ ] 合约审计工具
+- [ ] `core/vm` 包
 - [ ] `core/txpool.go`阅读笔记
+- [ ] `core/blockchain.go`
 - [ ] `core/state`包
-- [ ]  `core/state_transition.go`
-- [ ]  合约安全分析之程序分析基础
+- [ ] `core/state_transition.go`
 
 
 ---
@@ -399,3 +405,15 @@ Todo list:
 └── trie	//区块的重要数据结构 MPT
 ```
 
+## 底层源码参考
+
+- [简书博客](https://www.jianshu.com/u/572268941378)，最初发表的文章主要是以太坊源码分析，对以太坊的函数做了说明。
+- [最近的源码分析文章](https://github.com/blockchainGuide/blockchainguide/tree/main/source_code_analysis/ethereum/%E4%BB%A5%E5%A4%AA%E5%9D%8A%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90)
+- [GitHub - ZtesoftCS/go-ethereum-code-analysis](https://github.com/ZtesoftCS/go-ethereum-code-analysis) 4年前的源码分析汇总
+- [Ethereum-tutorial](https://github.com/Billy1900/Ethereum-tutorial)
+- [go-ethereum 源码笔记（概览）](https://knarfeh.com/2018/03/10/go-ethereum 源码笔记（概览）/) 四年前的博客
+- [Introduction · Ethereum Development with Go](https://goethereumbook.org/zh/) 跟着用 Go 写简单区块链
+- [Geth Documentation | Go Ethereum](https://geth.ethereum.org/docs/) geth 使用说明，调试程序，使用自带工具的参考。
+- [操作码详解和模拟](https://www.evm.codes/)。
+- [以太坊技术与实现](https://learnblockchain.cn/books/geth/)，作者作了整体性的说明，适合作为大致参考。
+- [笔者的源码分析和理论基础、调试实操](https://github.com/learnerLj/geth-analyze)。

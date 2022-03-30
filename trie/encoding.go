@@ -35,15 +35,18 @@ package trie
 // into the remaining bytes. Compact encoding is used for nodes stored on disk.
 
 func hexToCompact(hex []byte) []byte {
-	terminator := byte(0)
-	if hasTerm(hex) {
-		terminator = 1
-		hex = hex[:len(hex)-1]
+	terminator := byte(0) //初始化一个值位0的byte
+	if hasTerm(hex) {     //验证hex是否有后缀
+		terminator = 1         //hex有后缀证明是叶子节点
+		hex = hex[:len(hex)-1] //去掉后缀部分的hex编码（16）
 	}
+	//Compact开辟的空间长度为hex编码的一半再加1，这个1对应的空间是Compact的前缀
 	buf := make([]byte, len(hex)/2+1)
+	//判断是不是叶子节点
 	buf[0] = terminator << 5 // the flag byte
-	if len(hex)&1 == 1 {
-		buf[0] |= 1 << 4 // odd flag
+	//这一阶段的buf[0]可以理解为公式中的16*f(t)
+	if len(hex)&1 == 1 { //如果长度是奇数
+		buf[0] |= 1 << 4 // odd flag//这一阶段的buf[0]可以理解为公式中的16*（f(t)+1）
 		buf[0] |= hex[0] // first nibble is contained in the first byte
 		hex = hex[1:]
 	}
@@ -84,12 +87,22 @@ func compactToHex(compact []byte) []byte {
 	if len(compact) == 0 {
 		return compact
 	}
+	//进行展开即可
 	base := keybytesToHex(compact)
+
+	// apply terminator flag
+	// base[0]包括四种情况
+	// 00000000 扩展节点偶数位
+	// 00000001 扩展节点奇数位
+	// 00000010 叶子节点偶数位
+	// 00000011 叶子节点奇数位
+
 	// delete terminator flag
-	if base[0] < 2 {
+	if base[0] < 2 { //扩展结点
 		base = base[:len(base)-1]
 	}
 	// apply odd flag
+	//如果是偶数位，chop等于2，否则等于1
 	chop := 2 - base[0]&1
 	return base[chop:]
 }
@@ -101,6 +114,7 @@ func keybytesToHex(str []byte) []byte {
 		nibbles[i*2] = b / 16
 		nibbles[i*2+1] = b % 16
 	}
+	//计入
 	nibbles[l-1] = 16
 	return nibbles
 }
@@ -126,6 +140,7 @@ func decodeNibbles(nibbles []byte, bytes []byte) {
 }
 
 // prefixLen returns the length of the common prefix of a and b.
+//返回a&&b相同的前缀长度
 func prefixLen(a, b []byte) int {
 	var i, length = 0, len(a)
 	if len(b) < length {
@@ -140,6 +155,7 @@ func prefixLen(a, b []byte) int {
 }
 
 // hasTerm returns whether a hex key has the terminator flag.
+//判断是否为叶子节点
 func hasTerm(s []byte) bool {
 	return len(s) > 0 && s[len(s)-1] == 16
 }

@@ -2,7 +2,9 @@
 
 > `blocks.go`源码很短,但是涉及到一个值得一讲的**硬叉知识**，所以特意编写此文进行讲解。 
 >
-> [以太坊硬分叉简史 | 登链社区 | 深入浅出区块链技术 (learnblockchain.cn)](https://learnblockchain.cn/article/1024)
+> 参看文献：
+>
+> ​	[以太坊硬分叉简史 | 登链社区 | 深入浅出区块链技术 ](https://learnblockchain.cn/article/1024)
 >
 > 
 
@@ -21,11 +23,7 @@ var BadHashes = map[common.Hash]bool{
 }
 ```
 
-这两个我不是很清楚等待补充，很可能是之后我讲的两个经典案例对应的交易的hash值，所以在这里讲解一下`分叉`的概念以及定义。
-
-<img src="https://gitee.com/xyjjyyy/img/raw/master/myimg/%E5%88%86%E5%8F%89%E6%A6%82%E5%BF%B5.png" alt="image-20220320155807571" style="zoom:33%;" />
-
-<img src="blocks分析(硬叉).assets/image-20220320160209090.png" alt="image-20220320160209090" style="zoom:33%;" />
+这两个我不是很清楚等待补充，很可能是之后我讲的两个经典案例对应的交易的hash值，所以在这里讲解一下`分叉`的概念以及定义。<img src="https://lky-img.obs.cn-east-2.myhuaweicloud.com/image-20220321105410077.png" alt="image-20220321105410077" style="zoom:33%;" />
 
 ## 分叉
 
@@ -33,7 +31,7 @@ var BadHashes = map[common.Hash]bool{
 
    简单来说：**分叉是指在区块链进行“升级”时，区块链社区成员间发生了意见分歧，从而导致区块链分叉，原有区块链被一分为二，根据分叉后的区块链是否兼容旧区块链，分叉又分为“软分叉”和“硬分叉”** 
 
-​	因为没有中心化机构，比特币等数字资产每次代码升级都需要获得比特币社区	的一致认可，如果比特币社区无法达成一致，区块链很可能形成分叉。
+​	因为没有中心化机构，比特币等数字资产每次代码升级都需要获得比特币社区的一致认可，如果比特币社区无法达成一致，区块链很可能形成分叉。
 
 2. ##### 区块链分叉案例：
 
@@ -65,10 +63,11 @@ var BadHashes = map[common.Hash]bool{
 
    1. 硬分叉是指当区块链代码发生改变后 **旧节点拒绝接受由新节点创建的区块**，不符合原规则的区块将会被忽略，矿工会按照原规则在他们最后验证的区块之后创建新的区块，区块链领域最有名的硬分叉案例，便是**“以太坊”分叉**。
    
-      ![image-20220320155914645](https://gitee.com/xyjjyyy/img/raw/master/myimg/%E7%A1%AC%E5%88%86%E5%8F%89.png)
+      ![image-20220330160508648](https://lky-img.obs.cn-east-2.myhuaweicloud.com/image-20220330160508648.png)
    
-   1. 软分叉是指区块链代码发生改变后，**旧的节点并不会感知到区块链代码发生改变，并继续接受由新节点创建的区块**，矿工们可能会在他们完全没有理解或验证过的区块上进行工作，软分叉新旧节点双方始终都工作在同一条链上。![image-20220320160031763](https://gitee.com/xyjjyyy/img/raw/master/myimg/%E8%BD%AF%E5%88%86%E5%8F%89.png)
+   2. 软分叉是指区块链代码发生改变后，**旧的节点并不会感知到区块链代码发生改变，并继续接受由新节点创建的区块**，矿工们可能会在他们完全没有理解或验证过的区块上进行工作，软分叉新旧节点双方始终都工作在同一条链上。
    
+   <img src="https://lky-img.obs.cn-east-2.myhuaweicloud.com/image-20220330160443897.png" alt="image-20220330160443897" style="zoom:50%;" />
 
 
 

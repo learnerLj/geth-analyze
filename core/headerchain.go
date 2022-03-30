@@ -98,18 +98,22 @@ func NewHeaderChain(chainDb ethdb.Database, config *params.ChainConfig, engine c
 		engine:        engine,
 	}
 
+	//通过number(0)获取genesisHeader
 	hc.genesisHeader = hc.GetHeaderByNumber(0)
 	if hc.genesisHeader == nil {
 		return nil, ErrNoGenesis
 	}
 
+	//暂时储存 如果后面还将要进行储存的话讲进行替换
 	hc.currentHeader.Store(hc.genesisHeader)
 	if head := rawdb.ReadHeadBlockHash(chainDb); head != (common.Hash{}) {
 		if chead := hc.GetHeaderByHash(head); chead != nil {
+
 			hc.currentHeader.Store(chead)
 		}
 	}
 	hc.currentHeaderHash = hc.CurrentHeader().Hash()
+	//统计数据的更新
 	headHeaderGauge.Update(hc.CurrentHeader().Number.Int64())
 
 	return hc, nil

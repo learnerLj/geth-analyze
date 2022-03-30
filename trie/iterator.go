@@ -69,16 +69,19 @@ func (it *Iterator) Prove() [][]byte {
 type NodeIterator interface {
 	// Next moves the iterator to the next node. If the parameter is false, any child
 	// nodes will be skipped.
+	//返回下一个区块的迭代器
 	Next(bool) bool
 
 	// Error returns the error status of the iterator.
 	Error() error
 
 	// Hash returns the hash of the current node.
+	//当前区块的hash值
 	Hash() common.Hash
 
 	// Parent returns the hash of the parent of the current node. The hash may be the one
 	// grandparent if the immediate parent is an internal node with no hash.
+	//父节点的hash值
 	Parent() common.Hash
 
 	// Path returns the hex-encoded path to the current node.
@@ -87,21 +90,25 @@ type NodeIterator interface {
 	Path() []byte
 
 	// Leaf returns true iff the current node is a leaf node.
+	//判断是不是叶子节点
 	Leaf() bool
 
 	// LeafKey returns the key of the leaf. The method panics if the iterator is not
 	// positioned at a leaf. Callers must not retain references to the value after
 	// calling Next.
+	//返回叶子的key
 	LeafKey() []byte
 
 	// LeafBlob returns the content of the leaf. The method panics if the iterator
 	// is not positioned at a leaf. Callers must not retain references to the value
 	// after calling Next.
+	//返回叶子的内容
 	LeafBlob() []byte
 
 	// LeafProof returns the Merkle proof of the leaf. The method panics if the
 	// iterator is not positioned at a leaf. Callers must not retain references
 	// to the value after calling Next.
+	//返回叶子的merkle证明
 	LeafProof() [][]byte
 
 	// AddResolver sets an intermediate database to use for looking up trie nodes
@@ -120,6 +127,7 @@ type NodeIterator interface {
 
 // nodeIteratorState represents the iteration state at one particular node of the
 // trie, which can be resumed at a later invocation.
+//记录一个特定节点的迭代状态 如有需要可以恢复
 type nodeIteratorState struct {
 	hash    common.Hash // Hash of the node being iterated (nil if not standalone)
 	node    node        // Trie node being iterated

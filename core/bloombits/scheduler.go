@@ -67,7 +67,6 @@ func newScheduler(idx uint) *scheduler {
 //dist 表示需要分发到 schedule 的请求。
 //done 表示这次任务的结果，最后是退出的标识
 //
-//最终的效果是
 
 // run creates a retrieval pipeline, receiving section indexes from sections and
 // returning the results in the same order through the done channel. Concurrent
