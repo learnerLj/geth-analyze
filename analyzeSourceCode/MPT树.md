@@ -6,11 +6,13 @@
 >
 > 感谢前辈的精湛分析！
 
+![image-20220327222113848](https://lky-img.obs.cn-east-2.myhuaweicloud.com/image-20220327222113848.png)
+
 ## 前缀树Trie
 
 前缀树（又称字典树），通常来说，一个前缀树是用来`存储字符串`的。前缀树的每一个节点代表一个`字符串`（`前缀`）。每一个节点会有多个子节点，通往不同子节点的路径上有着不同的字符。子节点代表的字符串是由节点本身的`原始字符串`，以及`通往该子节点路径上所有的字符`组成的。如下图所示：
 
-[![image-20201231160000592](https://gitee.com/xyjjyyy/img/raw/master/img/0081Kckwgy1gm73i6xursj31820qq789.jpg)](https://tva1.sinaimg.cn/large/0081Kckwgy1gm73i6xursj31820qq789.jpg)
+[![image-20220330161620588](https://lky-img.obs.cn-east-2.myhuaweicloud.com/image-20220330161620588.png)](https://tva1.sinaimg.cn/large/0081Kckwgy1gm73i6xursj31820qq789.jpg)
 
 Trie的结点看上去是这样子的：
 
@@ -31,7 +33,7 @@ Trie的结点看上去是这样子的：
 
 1. 示例1：
 
-[![image-20201231133805927](https://gitee.com/xyjjyyy/img/raw/master/img/0081Kckwgy1gm70dwcmgdj31780kkqae.jpg)](https://tva1.sinaimg.cn/large/0081Kckwgy1gm70dwcmgdj31780kkqae.jpg)
+![image-20220330162035687](https://lky-img.obs.cn-east-2.myhuaweicloud.com/image-20220330162035687.png)
 
 图中可以很容易看出数中所存储的键值对：
 
@@ -46,7 +48,7 @@ Trie的结点看上去是这样子的：
 
 2. 示例2：
 
-<img src="https://gitee.com/xyjjyyy/img/raw/master/myimg/202203211109256.png" alt="image-20220321110946152" style="zoom: 50%;" />
+![image-20220330162102535](https://lky-img.obs.cn-east-2.myhuaweicloud.com/image-20220330162102535.png)
 
 
 
@@ -54,9 +56,7 @@ Trie的结点看上去是这样子的：
 
 ## 默克尔树Merkle Tree
 
-`Merkle树`看起来非常像二叉树，其叶子节点上的值通常为数据块的哈希值，而非叶子节点上的值，所以有时候`Merkle tree`也表示为`Hash tree`，如下图所示：
-
-​									[<img src="https://gitee.com/xyjjyyy/img/raw/master/myimg/202203211131770.jpeg" alt="image-20201230225028932" style="zoom: 33%;" />](https://tva1.sinaimg.cn/large/0081Kckwgy1gm69qu5vh8j31ba0ragpn.jpg)
+`Merkle树`看起来非常像二叉树，其叶子节点上的值通常为数据块的哈希值，而非叶子节点上的值，所以有时候`Merkle tree`也表示为`Hash tree`，如下图所示：![image-20220330162144911](https://lky-img.obs.cn-east-2.myhuaweicloud.com/image-20220330162144911.png)https://tva1.sinaimg.cn/large/0081Kckwgy1gm69qu5vh8j31ba0ragpn.jpg)
 
 在构造`Merkle`树时，首先要计算数据块的哈希值，通常，选用`SHA-256`等哈希算法。但如果仅仅防止数据不是蓄意的损坏或篡改，可以改用一些安全性低(实际生活中`CRC16`基本达到100%的正确率)但效率高的校验和算法，如`CRC`。然后将数据块计算的哈希值**两两配对（如果是奇数个数，最后一个自己与自己配对）**，计算**上一层哈希**，再重复这个步骤，一直到计算出根哈希值。
 
@@ -141,7 +141,7 @@ var nilValueNode = valueNode(nil) //空白节点
 3. Hex Key: 将 Key 进行半字节拆解后的 key ，用于 MPT 的树路径中和降低子节点水平宽度。
 4. HP Key: Hex 前缀编码(hex prefix encoding)，在节点存持久化时，将对节点 key 进行压缩编码，并加入节点类型标签，以便从存储读取节点数据后可分辨节点类型。
 
-下图是 key 有特定的使用场景，基本支持逆向编码，在下面的讲解中 Key 在不同语义下特指的类型有所不同。[![图：以太坊 MPT 中几类 Key](https://gitee.com/xyjjyyy/img/raw/master/img/20191123215406.png!de)](https://img.learnblockchain.cn/book_geth/20191123215406.png!de?width=600px)
+下图是 key 有特定的使用场景，基本支持逆向编码，在下面的讲解中 Key 在不同语义下特指的类型有所不同
 
 ### 节点结构改进
 
@@ -150,8 +150,6 @@ var nilValueNode = valueNode(nil) //空白节点
 ​             		        [<img src="https://img.learnblockchain.cn/book_geth/20191122001418.png!de?width=500px" alt="img" style="zoom:50%;" />](https://img.learnblockchain.cn/book_geth/20191122001418.png!de?width=500px)
 
 在上图的基数树中，持久化节点，有 12 次 IO。数据越多时，节点数越多，IO 次数越多。另外当树很深时，可能需要遍历到树的底部才能查询到数据。 面对此效率问题，以太坊在树中加入了一种名为**分支节点**(branch node) 的节点结构，将其子节点直接包含在自身的数据插槽中。
-
-[![img](https://gitee.com/xyjjyyy/img/raw/master/img/20191122235430.png!de)](https://img.learnblockchain.cn/book_geth/20191122235430.png!de?width=500px)
 
 这样可缩减树深度和减少IO次数，特别是当插槽中均有子节点存在时，改进效果越明显。 下图是上方基数树在采用分支节点后的树节点逻辑布局：
 
@@ -163,11 +161,9 @@ var nilValueNode = valueNode(nil) //空白节点
 
 另外一个可以参考的官方图：
 
-​							<img src="https://gitee.com/xyjjyyy/img/raw/master/myimg/202203221119638.png" alt="image-20220322111925158" style="zoom:50%;" />
+![image-20220327222113848](https://lky-img.obs.cn-east-2.myhuaweicloud.com/image-20220327222113848.png)
 
 另外，数据 Key 在进入 MPT 前已转换 Secure Key。 因此，key 长度为 32 字节，每个字节的值范围是[0 - 255]。 如果在分支节点中使用 256 个插槽，空间开销非常高，造成浪费，毕竟空插槽在持久化时也需要占用空间。同时超大容量的插槽，也会可能使得持久化数据过大，可能会造成读取持久化数据时占用过多内存。 如果将 Key 进行[Hex 编码](https://learnblockchain.cn/books/geth/part3/mpt.html#hex-encoding)，每个字节值范围被缩小到 [0-15] 内(4bits)。这样，分支节点只需要 16 个插槽来存放子节点。
-
-​																								[![img](https://gitee.com/xyjjyyy/img/raw/master/img/20191123004006.png!de)](https://img.learnblockchain.cn/book_geth/20191123004006.png!de?width=500px)
 
 上图中 0 - f 插槽索引是半字节值，也是 Key 路径的一部分。虽然一定程度上增加了树高，但降低了分支节点的存储大小，也保证了一定的分支节点合并量。
 
@@ -185,8 +181,6 @@ var nilValueNode = valueNode(nil) //空白节点
 - `Storage Trie`存储树
   - 存储只能合约状态
   - 每个账号有自己的 Storage Trie
-
-[![image-20201231141329137](https://gitee.com/xyjjyyy/img/raw/master/img/0081Kckwgy1gm70f77s2dj319g0lymyz.jpg)](https://tva1.sinaimg.cn/large/0081Kckwgy1gm70f77s2dj319g0lymyz.jpg)
 
 这两个区块头中，`state root`、`tx root`、 `receipt root`分别存储了这三棵树的树根，第二个区块显示了当账号 17 5的数据变更(**27 -> 45**)的时候，只需要存储跟这个账号相关的部分数据，而且老的区块中的数据还是可以正常访问。
 
@@ -251,11 +245,11 @@ func keybytesToHex(str []byte) []byte {
 
 **数学公式定义：**
 
-[![image-20201231170415071](https://gitee.com/xyjjyyy/img/raw/master/img/0081Kckwgy1gm75cvok4yj318s07iwfg.jpg)](https://tva1.sinaimg.cn/large/0081Kckwgy1gm75cvok4yj318s07iwfg.jpg)
+[![image-20220330161849571](https://lky-img.obs.cn-east-2.myhuaweicloud.com/image-20220330161849571.png)](https://tva1.sinaimg.cn/large/0081Kckwgy1gm75cvok4yj318s07iwfg.jpg)
 
 Hex-Prefix 编码是一种任意量的半字节转换为数组的有效方式，还可以在存入一个标识符来区分不同节点类型。 因此 HP 编码是在由一个标识符前缀和半字节转换为数组的两部分组成。存入到数据库中存在节点 Key 的只有扩展节点和叶子节点，因此 HP 只用于区分扩展节点和叶子节点，不涉及无节点 key 的分支节点。其编码规则如下图：
 
-<img src="https://gitee.com/xyjjyyy/img/raw/master/myimg/202203221126855.png" alt="image-20220322112620580" style="zoom: 67%;" />
+![image-20220330162436055](https://lky-img.obs.cn-east-2.myhuaweicloud.com/image-20220330162436055.png)
 
 前缀标识符由两部分组成：节点类型和奇偶标识，并存储在编码后字节的第一个半字节中。 0 表示扩展节点类型，1 表示叶子节点，偶为 0，奇为 1。最终可以得到唯一标识的前缀标识：
 
@@ -295,7 +289,9 @@ func hexToCompact(hex []byte) []byte {
 	//Compact开辟的空间长度为hex编码的一半再加1，这个1对应的空间是Compact的前缀
 	buf := make([]byte, len(hex)/2+1)
 	////这一阶段的buf[0]可以理解为公式中的16*f(t)
-	buf[0] = terminator << 5 // the flag byte
+    //判断节点类型
+	buf[0] = terminator << 5 // the flag byte 
+    //判断jiou
 	if len(hex)&1 == 1 {     //hex 长度为奇数，则逻辑上说明hex有前缀
 		buf[0] |= 1 << 4 ////这一阶段的buf[0]可以理解为公式中的16*（f(t)+1）
 		buf[0] |= hex[0] // first nibble is contained in the first byte
@@ -390,7 +386,7 @@ func hasTerm(s []byte) bool {
 
 如下图：
 
-[![image-20201231150011417](https://gitee.com/xyjjyyy/img/raw/master/img/0081Kckwgy1gm71rsyyekj319w05ygml.jpg)](https://tva1.sinaimg.cn/large/0081Kckwgy1gm71rsyyekj319w05ygml.jpg)
+[![image-20220330161823864](https://lky-img.obs.cn-east-2.myhuaweicloud.com/image-20220330161823864.png)](https://tva1.sinaimg.cn/large/0081Kckwgy1gm71rsyyekj319w05ygml.jpg)
 
 以上介绍的MPT树，可以用来存储内容为任何长度的`key-value`数据项。倘若数据项的`key`长度没有限制时，当树中维护的数据量较大时，仍然会造成整棵树的深度变得越来越深，会造成以下影响：
 
@@ -411,7 +407,7 @@ func hasTerm(s []byte) bool {
 
 完整的编码流程如图：
 
-[![image-20201231150520220](https://gitee.com/xyjjyyy/img/raw/master/img/0081Kckwgy1gm71x5i5djj31by07275g.jpg)](https://tva1.sinaimg.cn/large/0081Kckwgy1gm71x5i5djj31by07275g.jpg)
+![image-20220330162503765](https://lky-img.obs.cn-east-2.myhuaweicloud.com/image-20220330162503765.png)
 
 ## MPT轻节点
 
@@ -686,7 +682,7 @@ func New(root common.Hash, db *Database) (*Trie, error) {
 
 首先Trie树的插入是个递归调用的过程，它会从根开始找，一直找到合适的位置插入。
 
-<img src="https://gitee.com/xyjjyyy/img/raw/master/img/image-20220323144017022.png" alt="image-20220323144017022" style="zoom:50%;" height="500px" width="800px" />
+<img src="https://lky-img.obs.cn-east-2.myhuaweicloud.com/image-20220330162606450.png" alt="image-20220330162606450" style="zoom:50%;" />
 
 ```
 func (t *Trie) insert(n node, prefix, key []byte, value node) (bool, node, error)
@@ -705,8 +701,6 @@ func (t *Trie) insert(n node, prefix, key []byte, value node) (bool, node, error
 - Node :插入完成后的子树的根节点
 
 接下来就是分别对`shortNode`、`fullNode`、`hashNode`、`nil` 几种情况进行说明。
-
-![image-20220323143930826](https://gitee.com/xyjjyyy/img/raw/master/img/image-20220323143930826.png)
 
 **2.1：节点为nil**
 
@@ -784,7 +778,7 @@ rn, err := t.resolveHash(n, prefix)
 
 其实就是根据输入的`hash`，找到对应的叶子节点的数据。主要看`TryGet`方法。
 
-<img src="https://gitee.com/xyjjyyy/img/raw/master/img/image-20220323143618898.png" alt="image-20220323143618898" style="zoom: 67%;" height="800px" width="850px" />
+<img src="https://lky-img.obs.cn-east-2.myhuaweicloud.com/image-20220330162644392.png" alt="image-20220330162644392" style="zoom:50%;" />
 
 参数：
 
@@ -846,7 +840,7 @@ func (t *Trie) tryGet(origNode node, key []byte, pos int) (value []byte, newnode
 
 首先依次写入：romane、romanus、romulus 后树的变化如下：
 
-[![以太坊技术与实现-图-20191127165135.png](https://gitee.com/xyjjyyy/img/raw/master/img/20191127165135.png!de)](https://img.learnblockchain.cn/book_geth/20191127165135.png!de?width=600px)
+<img src="https://lky-img.obs.cn-east-2.myhuaweicloud.com/image-20220330162716451.png" alt="image-20220330162716451" style="zoom:50%;" />
 
 图中的每一个圆圈均代表一个节点，只是节点的类型不同。需要注意的是，图中的红色字部分，实际是一个短节点（shortNode）。 比如，红色的“roman“ 短节点的 key 为 roman, value 是分支节点。继续写入 rubens、ruber、rubicon 的变化过程如下：
 
@@ -854,7 +848,7 @@ func (t *Trie) tryGet(origNode node, key []byte, pos int) (value []byte, newnode
 
 最后，写入最后一个数据项 rubicunds 后可得到最终的 MPT 树结构：
 
-​																		[<img src="https://gitee.com/xyjjyyy/img/raw/master/img/20191127170214.png!de" alt="以太坊技术与实现-图-20191127170214.png" style="zoom:50%;" />](https://img.learnblockchain.cn/book_geth/20191127170214.png!de?width=400px)
+​																	![image-20220330162733439](https://lky-img.obs.cn-east-2.myhuaweicloud.com/image-20220330162733439.png)
 
 ### 将节点写入到Trie的内存数据库
 

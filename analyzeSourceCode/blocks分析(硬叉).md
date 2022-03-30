@@ -2,7 +2,9 @@
 
 > `blocks.go`源码很短,但是涉及到一个值得一讲的**硬叉知识**，所以特意编写此文进行讲解。 
 >
-> [以太坊硬分叉简史 | 登链社区 | 深入浅出区块链技术 (learnblockchain.cn)](https://learnblockchain.cn/article/1024)
+> 参看文献：
+>
+> ​	[以太坊硬分叉简史 | 登链社区 | 深入浅出区块链技术 ](https://learnblockchain.cn/article/1024)
 >
 > 
 
@@ -21,11 +23,7 @@ var BadHashes = map[common.Hash]bool{
 }
 ```
 
-这两个我不是很清楚等待补充，很可能是之后我讲的两个经典案例对应的交易的hash值，所以在这里讲解一下`分叉`的概念以及定义。
-
-<img src="https://gitee.com/xyjjyyy/img/raw/master/myimg/%E5%88%86%E5%8F%89%E6%A6%82%E5%BF%B5.png" alt="image-20220320155807571" style="zoom:33%;" />
-
-<img src="C:/Users/Administrator/AppData/Roaming/Typora/typora-user-images/image-20220321105410077.png" alt="image-20220321105410077" style="zoom:33%;" />
+这两个我不是很清楚等待补充，很可能是之后我讲的两个经典案例对应的交易的hash值，所以在这里讲解一下`分叉`的概念以及定义。<img src="https://lky-img.obs.cn-east-2.myhuaweicloud.com/image-20220321105410077.png" alt="image-20220321105410077" style="zoom:33%;" />
 
 ## 分叉
 
@@ -65,11 +63,11 @@ var BadHashes = map[common.Hash]bool{
 
    1. 硬分叉是指当区块链代码发生改变后 **旧节点拒绝接受由新节点创建的区块**，不符合原规则的区块将会被忽略，矿工会按照原规则在他们最后验证的区块之后创建新的区块，区块链领域最有名的硬分叉案例，便是**“以太坊”分叉**。
    
-      <img src="https://gitee.com/xyjjyyy/img/raw/master/myimg/202203211055038.png" alt="image-20220321105523902" style="zoom:33%;" />
+      ![image-20220330160508648](https://lky-img.obs.cn-east-2.myhuaweicloud.com/image-20220330160508648.png)
    
    2. 软分叉是指区块链代码发生改变后，**旧的节点并不会感知到区块链代码发生改变，并继续接受由新节点创建的区块**，矿工们可能会在他们完全没有理解或验证过的区块上进行工作，软分叉新旧节点双方始终都工作在同一条链上。
    
-   <img src="https://gitee.com/xyjjyyy/img/raw/master/myimg/%E8%BD%AF%E5%88%86%E5%8F%89.png" alt="image-20220320160031763" style="zoom:33%;" />
+   <img src="https://lky-img.obs.cn-east-2.myhuaweicloud.com/image-20220330160443897.png" alt="image-20220330160443897" style="zoom:50%;" />
 
 
 
