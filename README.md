@@ -32,6 +32,8 @@ Go Ethereum Analyze
 - [x] `core/tx_journal.go`
 - [x] `core/tx_noncer.go`
 - [x]  `core/forkid` 包
+- [ ]  `core/blocks.go`
+- [x]  `trie`包`MPT`分析
 
 已完成的理论基础列表
 
@@ -48,6 +50,7 @@ Todo list:
 - [ ] 以太坊核心数据结构文章
 - [ ] `core/vm` 包
 - [ ] `core/txpool.go`阅读笔记
+- [ ] `core/blockchain.go`
 - [ ] `core/state`包
 - [ ] `core/state_transition.go`
 
