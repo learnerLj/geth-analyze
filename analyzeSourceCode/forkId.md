@@ -1,37 +1,56 @@
-// Copyright 2019 The go-ethereum Authors
-// This file is part of the go-ethereum library.
-//
-// The go-ethereum library is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Lesser General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// The go-ethereum library is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU Lesser General Public License for more details.
-//
-// You should have received a copy of the GNU Lesser General Public License
-// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
+## EIP-2124
 
-// Package forkid implements EIP-2124 (https://eips.ethereum.org/EIPS/eip-2124).
-package forkid
+因为 `core/forkId` 包是 EIP-2124 的实现，因此我们先了解 [EIP-2124](https://eips.ethereum.org/EIPS/eip-2124) 的内容。
 
-import (
-	"encoding/binary"
-	"errors"
-	"hash/crc32"
-	"math"
-	"math/big"
-	"reflect"
-	"strings"
+### 目的
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/params"
-)
+> **记住以太坊是向后兼容！**
 
+以太坊节点之前寻找其他节点的方式是：随机的选择可以连接的节点，再去判断节点是否对自己有用。但是其他的节点可能是主网节点、测试网节点、私网节点、共识机制不一致的节点，这样“盲目”的寻找会浪费资源。
+
+于是这个提案希望在连接前，其他节点可以发送自己的链配置，实现精确连接到有用节点。这个传递的信息在提案中被称作 `fork identifier`，它实现如下功能：
+
+- 如果两个节点在不同的网络上，他们不应该考虑连接。
+- 如果硬分叉通过，升级的节点应该拒绝未升级的节点。
+- 如果两条链有相同的创世区块配置和链配置，但没有分叉（ETH / ETC），它们应该拒绝连接。
+
+这个提案并没有完整地处理分叉的问题，例如对于分叉 A、B、C，它没有单独处理每个分叉。
+
+### 具体实现方式
+
+- **`FORK_HASH`**: 创世配置哈希和分叉区块高度的校验和，4 字节。
+  - 分叉的区块高度按照顺序，计算 CRC32 校验和。
+  - 分叉的区块高度视作 `uint64`，计算校验和时按照大端序。
+  - 如果创世配置中不包括 Frontier 版本，就不考虑分叉带来的影响。
+- **`FORK_NEXT`**: 下一个将分叉的区块高度，如果未知则为 0。
+
+例如主网的 `ForK_HASH` 的计算：
+
+- forkhash₀ = `0xfc64ec04` (Genesis) = `CRC32(<genesis-hash>)`
+- forkhash₁ = `0x97c2c34c` (Homestead) = `CRC32(<genesis-hash> || uint64(1150000))`
+- forkhash₂ = `0x91d1f948` (DAO fork) = `CRC32(<genesis-hash> || uint64(1150000) || uint64(1920000))`
+
+然后 `fork indentifier` 定义为 `RLP([FORK_HASH, FORK_NEXT])`。提案后面给出了详细的例子，这里不再讨论。
+
+### 验证规则
+
+- 本地和远程节点的 `FORK_HASH` 匹配，比较当前的区块高度和 `FORK_NEXT`。这说明当前的两个节点是兼容的，未来的某次分叉后可能不兼容。
+  - 如果存在远程节点宣布的分叉区块还没有传递给本地节点，但本地节点已经接收了分叉的区块，则断开的当前连接。（因为本地升级了，连接着的远程节点还没有，这就不兼容）
+  - 没有远程节点宣布分叉区块，而且本地节点也没有接收到分叉区块，则继续连接。
+- 如果远程节点的 `FORK_HASH` 是当前节点的子集，并且远程节点的 `FORK_NEXT` 与本地节点将接收的分叉高度相同，则连接。
+  - 远程节点没有实现某些分叉，但是它可以获取信息，虽然后面可能会“渐行渐远”。
+- 如果远程节点的 `FORK_HASH` 是当前节点的超集，并且本地节点可以在将来的分叉中逐渐与远程节点的 `FORK_HASH` 相同。连接。
+- 如果不是前面提到的情况，则拒绝所有连接。
+
+
+
+## 源码实现
+
+### 兼容性错误和生成 ID 的依据
+
+首先定义远程节点和本地节点之间不兼容的情况。一种是远程节点的检验和是本地的子集，说明远程节点还没升级，不兼容。另一种是远程节点的校验和不匹配，说明它的分叉顺序、链配置、创世区块配置与本地不兼容。
+
+```go
 var (
 	// ErrRemoteStale is returned by the validator if a remote fork checksum is a
 	// subset of our already applied forks, but the announced next fork block is
@@ -43,7 +62,11 @@ var (
 	// two chains have diverged in the past at some point (possibly at genesis).
 	ErrLocalIncompatibleOrStale = errors.New("local incompatible or needs update")
 )
+```
 
+为了传递信息，定义了链配置、创世区块配置和当前区块头的接口。然后定义了 `ID` 包括了前面提到的 `FORK_HASH` 和 `FORK_NEXT`，最后定义了判断是否兼容的函数 `Filter`。
+
+```go
 // Blockchain defines all necessary method to build a forkID.
 type Blockchain interface {
 	// Config retrieves the chain's fork configuration.
@@ -64,9 +87,13 @@ type ID struct {
 
 // Filter is a fork id filter to validate a remotely advertised ID.
 type Filter func(id ID) error
+```
 
-//参数：链配置、创世区块哈希、当前分叉的区块高度
+### 创建 ID 标识
 
+节点根据对方的 ID 的内容，选择是否连接。从链配置、创世区块哈希、当前分叉区块高度获取节点的标识
+
+```go
 // NewID calculates the Ethereum fork ID from the chain config, genesis hash, and head.
 func NewID(config *params.ChainConfig, genesis common.Hash, head uint64) ID {
 	// Calculate the starting checksum from the genesis hash
@@ -85,40 +112,15 @@ func NewID(config *params.ChainConfig, genesis common.Hash, head uint64) ID {
 	}
 	return ID{Hash: checksumToBytes(hash), Next: next}
 }
+```
 
-//从前面设置的接口新建节点的标识
+### 创建过滤器
 
-// NewIDWithChain calculates the Ethereum fork ID from an existing chain instance.
-func NewIDWithChain(chain Blockchain) ID {
-	return NewID(
-		chain.Config(),
-		chain.Genesis().Hash(),
-		chain.CurrentHeader().Number.Uint64(),
-	)
-}
+首先根据本地节点的配置，创建过滤器。然后输入远程节点的 ID，通过检查过滤器是否抛出不兼容的错误，就可以知道是否连接远程节点。
 
-//根据本地节点的链配置、创世区块配置和当前区块高度创建可用远程节点过滤器
+过滤规则详见 EIP-2124，本文前面提到过。
 
-// NewFilter creates a filter that returns if a fork ID should be rejected or not
-// based on the local chain's status.
-func NewFilter(chain Blockchain) Filter {
-	return newFilter(
-		chain.Config(),
-		chain.Genesis().Hash(),
-		func() uint64 {
-			return chain.CurrentHeader().Number.Uint64()
-		},
-	)
-}
-
-// NewStaticFilter creates a filter at block zero.
-func NewStaticFilter(config *params.ChainConfig, genesis common.Hash) Filter {
-	head := func() uint64 { return 0 }
-	return newFilter(config, genesis, head)
-}
-
-//根据本地节点的配置，创建筛选有用的远程节点的筛选器，返回了一个 Filter 函数（匿名函数会保留定义时外部变量的状态）。
-
+```go
 // newFilter is the internal version of NewFilter, taking closures as its arguments
 // instead of a chain. The reason is to allow testing it without having to simulate
 // an entire blockchain.
@@ -223,78 +225,66 @@ func newFilter(config *params.ChainConfig, genesis common.Hash, headfn func() ui
 		return nil // Something's very wrong, accept rather than reject
 	}
 }
+```
 
-//计算累积校验和
+### 提取分叉高度
 
-// checksumUpdate calculates the next IEEE CRC32 checksum based on the previous
-// one and a fork block number (equivalent to CRC32(original-blob || fork)).
-func checksumUpdate(hash uint32, fork uint64) uint32 {
-	var blob [8]byte
-	binary.BigEndian.PutUint64(blob[:], fork)
-	return crc32.Update(hash, crc32.IEEETable, blob[:])
-}
+从上面过滤器的规则可以看出，它主要根据分叉的高度来判断是否兼容。以下的函数用于从链配置中提取分叉高度。
 
-// checksumToBytes converts a uint32 checksum into a [4]byte array.
-func checksumToBytes(hash uint32) [4]byte {
-	var blob [4]byte
-	binary.BigEndian.PutUint32(blob[:], hash)
-	return blob
-}
-
-//返回本地节点所有的分叉高度
-
+```go
 // gatherForks gathers all the known forks and creates a sorted list out of them.
 func gatherForks(config *params.ChainConfig) []uint64 {
-	// Gather all the fork block numbers via reflection
-	kind := reflect.TypeOf(params.ChainConfig{})
-	conf := reflect.ValueOf(config).Elem()
+   // Gather all the fork block numbers via reflection
+   kind := reflect.TypeOf(params.ChainConfig{})
+   conf := reflect.ValueOf(config).Elem()
 
-	var forks []uint64
-	for i := 0; i < kind.NumField(); i++ {
-		// Fetch the next field and skip non-fork rules
-		field := kind.Field(i)
+   var forks []uint64
+   for i := 0; i < kind.NumField(); i++ {
+      // Fetch the next field and skip non-fork rules
+      field := kind.Field(i)
 
-		//处理链配置中的分叉区块，因为它们末尾都是 Block，而且都是 bigInt 类型
-		if !strings.HasSuffix(field.Name, "Block") {
-			continue
-		}
-		if field.Type != reflect.TypeOf(new(big.Int)) {
-			continue
-		}
-		// Extract the fork rule block number and aggregate it
-		rule := conf.Field(i).Interface().(*big.Int)
-		if rule != nil {
-			forks = append(forks, rule.Uint64())
-		}
-	}
+      //处理链配置中的分叉区块，因为它们末尾都是 Block，而且都是 bigInt 类型
+      if !strings.HasSuffix(field.Name, "Block") {
+         continue
+      }
+      if field.Type != reflect.TypeOf(new(big.Int)) {
+         continue
+      }
+      // Extract the fork rule block number and aggregate it
+      rule := conf.Field(i).Interface().(*big.Int)
+      if rule != nil {
+         forks = append(forks, rule.Uint64())
+      }
+   }
 
-	//数据量很小，冒泡排序也不差，区块高度需要按升序，表达分叉顺序
+   //数据量很小，冒泡排序也不差，区块高度需要按升序，表达分叉顺序
 
-	// Sort the fork block numbers to permit chronological XOR
-	for i := 0; i < len(forks); i++ {
-		for j := i + 1; j < len(forks); j++ {
-			if forks[i] > forks[j] {
-				forks[i], forks[j] = forks[j], forks[i]
-			}
-		}
-	}
+   // Sort the fork block numbers to permit chronological XOR
+   for i := 0; i < len(forks); i++ {
+      for j := i + 1; j < len(forks); j++ {
+         if forks[i] > forks[j] {
+            forks[i], forks[j] = forks[j], forks[i]
+         }
+      }
+   }
 
-	//处理同一个区块高度多个分叉的情况，删除前面的重复的分叉。这种情况几乎不会发生。
-	//如A、B、C 的分叉高度都是 1000，那么删除 A、B对应的区块高度。
+   //处理同一个区块高度多个分叉的情况，删除前面的重复的分叉。这种情况几乎不会发生。
+   //如A、B、C 的分叉高度都是 1000，那么删除 A、B对应的区块高度。
 
-	// Deduplicate block numbers applying multiple forks
-	for i := 1; i < len(forks); i++ {
-		if forks[i] == forks[i-1] {
-			forks = append(forks[:i], forks[i+1:]...)
-			i--
-		}
-	}
+   // Deduplicate block numbers applying multiple forks
+   for i := 1; i < len(forks); i++ {
+      if forks[i] == forks[i-1] {
+         forks = append(forks[:i], forks[i+1:]...)
+         i--
+      }
+   }
 
-	//跳过高度为 0 的分叉，因为它是写在创世区块的配置里。
+   //跳过高度为 0 的分叉，因为它是写在创世区块的配置里。
 
-	// Skip any forks in block 0, that's the genesis ruleset
-	if len(forks) > 0 && forks[0] == 0 {
-		forks = forks[1:]
-	}
-	return forks
+   // Skip any forks in block 0, that's the genesis ruleset
+   if len(forks) > 0 && forks[0] == 0 {
+      forks = forks[1:]
+   }
+   return forks
 }
+```
