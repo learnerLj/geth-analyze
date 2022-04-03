@@ -41,18 +41,20 @@ Go Ethereum Analyze
 - [x] 合约安全分析之程序分析基础
 - [x] 学习路线和资源汇总
 - [x] 初步理解 EVM 的 stack、memory、storage、calldata
+- [x] 以太坊黄皮书中 EVM 设计思路解读
+- [x] 合约审计工具说明和使用
+- [x] 以太坊核心数据结构文章
 
 Todo list:
 
-- [ ] 合约审计工具说明和使用
 - [ ] 合约安全分析之抽象
-- [ ] 以太坊黄皮书中 EVM 设计思路解读
-- [ ] 以太坊核心数据结构文章
 - [ ] `core/vm` 包
 - [ ] `core/txpool.go`阅读笔记
 - [ ] `core/blockchain.go`
 - [ ] `core/state`包
 - [ ] `core/state_transition.go`
+- [ ] 完善以太坊架构图
+- [ ] 深入合约字节码分析
 
 
 ---
