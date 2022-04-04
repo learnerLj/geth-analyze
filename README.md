@@ -82,7 +82,7 @@ Todo list:
 
    遇见问题参考 [官方教程](https://geth.ethereum.org/docs/install-and-build/installing-geth) 和博客。注意如果未设置代理，下载速度会很慢，耐心等待。关于如何设置代理，请自行查找教程。
 3. 克隆仓库，开始工作。配置好自己的 Git，不会使用请自行寻找教程。然后 VSCode、goland 配置好相关环境（自行寻找教程）
-4. 安装翻译插件，复制阅读英文注释，推荐 JetBrain 系的 [Transaction](https://yiiguxing.github.io/TranslationPlugin/index.html) 和 VSCode 的 Comment Translate。
+4. 安装翻译插件，辅助阅读英文注释，推荐 JetBrain 系的 [Transaction](https://yiiguxing.github.io/TranslationPlugin/index.html) 和 VSCode 的 Comment Translate。
 
 ---
 
