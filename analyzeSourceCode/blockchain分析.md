@@ -161,7 +161,7 @@ func (bc *BlockChain) writeHeader(header *types.Header) error{}
 func (bc *BlockChain) update() {}
 ```
 
-## blockchain初始化
+## blockchain初始化(NewBlockChain)
 
 主要步骤：
 
@@ -171,8 +171,8 @@ func (bc *BlockChain) update() {}
 bc.hc, err = NewHeaderChain(db, chainConfig, engine, bc.getProcInterrupt)
 ```
 
-1. 根据number（0）获取genesisHeader
-2. 从rawdb中读取HeadBlock并存储在currentHeader中
+1. 根据**number（0）**获取**genesisHeader**
+2. 从**rawdb中读取HeadBlock并存储在currentHeade**r中
 
 ②：获取genesisBlock
 
@@ -230,13 +230,14 @@ go bc.update()
 7. 查找创世区块：bc.genesisBlock = bc.GetBlockByNumber(0)
 8. 加载最新的状态数据：bc.loadLastState()
 9. 检查区块哈希的当前状态，并确保链中没有任何坏块
-10. go bc.update() 定时处理future block
+10. go bc.**futureBlocksLoop**()定时处理future block
 
-## 加载区块链状态
+## 加载区块链状态(locadLastState)
 
-①：从数据库中恢复headblock，如果空的话，触发reset chain
+1：从rawdb数据库中恢复**最新的**headblock，如果rawdb数据库空的话也就是没有读出来头部区块的话，触发reset chain
 
 ```go
+//获取最新的头部hash
 head := rawdb.ReadHeadBlockHash(bc.db)
 	if head == (common.Hash{}) {
 		log.Warn("Empty database, resetting chain")
@@ -244,9 +245,10 @@ head := rawdb.ReadHeadBlockHash(bc.db)
 	}
 ```
 
-②：确保整个head block是可以获取的，若为空，则触发reset chain
+2：通过头部hash获取头部区块，确保整个head block是可以获取的，若为空，则触发reset chain
 
 ```go
+//通过头部hash获取头部区块
 currentBlock := bc.GetBlockByHash(head)
 	if currentBlock == nil {
 		// Corrupt or empty database, init from scratch
@@ -255,20 +257,21 @@ currentBlock := bc.GetBlockByHash(head)
 	}
 ```
 
-③：从stateDb中打开最新区块的状态trie，如果打开失败调用bc.repair(&currentBlock)方法进行修复。修复方法就是从当前区块一个个的往前面找，直到找到好的区块，然后赋值给currentBlock。
+其中GetBlockByHash(head)的方法是这样的：
 
 ```go
-if _, err := state.New(currentBlock.Root(), bc.stateCache); err != nil {
-		// Dangling block without a state associated, init from scratch
-		log.Warn("Head state missing, repairing chain", "number", currentBlock.Number(), "hash", currentBlock.Hash())
-		if err := bc.repair(&currentBlock); err != nil {
-			return err
-		}
-		rawdb.WriteHeadBlockHash(bc.db, currentBlock.Hash())
+func (bc *BlockChain) GetBlockByHash(hash common.Hash) *types.Block {
+    //通过hash获取number
+	number := bc.hc.GetBlockNumber(hash)
+	if number == nil {
+		return nil
 	}
+    //通过number获取区块
+	return bc.GetBlock(hash, *number)
+}
 ```
 
-④：存储当前的headblock和设置当前的headHeader以及头部快速块
+3：存储当前的headblock和设置当前的headHeader以及头部快速块
 
 ```go
 bc.currentBlock.Store(currentBlock)
@@ -277,6 +280,45 @@ bc.hc.SetCurrentHeader(currentHeader)
 ...
 bc.currentFastBlock.Store(currentBlock)
 ```
+
+具体的`store`函数的使用我写了一段代码作为示例帮助理解：
+
+```go
+package main
+
+import (
+	"fmt"
+	"sync/atomic"
+)
+
+func main() {
+	var res atomic.Value
+	res.Store("test1")
+	fmt.Println(res)//res=>{test1}
+
+	res.Store("test2")
+	fmt.Println(res)//res=>{test}
+}
+```
+
+证明里面存放的数据会进行覆盖，所以类似于这样的代码就好理解了：
+
+```go
+bc.currentFastBlock.Store(currentBlock)
+	headFastBlockGauge.Update(int64(currentBlock.NumberU64()))
+
+	//ReadHeadFastBlockHash retrieves the hash of the current fast-sync head block.
+	if head := rawdb.ReadHeadFastBlockHash(bc.db); head != (common.Hash{}) {
+		if block := bc.GetBlockByHash(head); block != nil {
+			//为何store完之后又进行一次store 
+            //其实是为了和链进行同步（其他地方链可能
+            bc.currentFastBlock.Store(block)
+			headFastBlockGauge.Update(int64(block.NumberU64()))
+		}
+	}
+```
+
+
 
 ## 插入数据到blockchain中
 
