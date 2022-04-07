@@ -22,6 +22,8 @@ import (
 	"github.com/holiman/uint256"
 )
 
+//内存是按字节读取，附带了内存的 gas 消耗
+
 // Memory implements a simple memory model for the ethereum virtual machine.
 type Memory struct {
 	store       []byte
@@ -32,6 +34,9 @@ type Memory struct {
 func NewMemory() *Memory {
 	return &Memory{}
 }
+
+//写入内存，如果熟悉操作码，会知道它是通过 MSTORE，根据给定的偏移量和大小写入。
+//内存拓展操作在其他部分，如果写入之前内存分配不足，写入为空（即不写入）
 
 // Set sets offset + size to value
 func (m *Memory) Set(offset, size uint64, value []byte) {
@@ -47,6 +52,9 @@ func (m *Memory) Set(offset, size uint64, value []byte) {
 	}
 }
 
+//直接写入 32 字节，如果不足那么会从左边补零。
+//为什么要预先写入 0 呢，这和编译器有关，内存指针的下一个位置可能会作为暂存的位置。
+
 // Set32 sets the 32 bytes starting at offset to the value of val, left-padded with zeroes to
 // 32 bytes.
 func (m *Memory) Set32(offset uint64, val *uint256.Int) {
@@ -55,11 +63,16 @@ func (m *Memory) Set32(offset uint64, val *uint256.Int) {
 	if offset+32 > uint64(len(m.store)) {
 		panic("invalid memory: store empty")
 	}
+
+	//全部预先写入 0
+
 	// Zero the memory area
 	copy(m.store[offset:offset+32], []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
 	// Fill in relevant bits
-	val.WriteToSlice(m.store[offset:])
+	val.WriteToSlice(m.store[offset:]) //如果算上偏移量之后，内存超过了32字节，那么只会写入前32个字节。
 }
+
+//拓展内存大小
 
 // Resize resizes the memory to size
 func (m *Memory) Resize(size uint64) {
@@ -68,7 +81,9 @@ func (m *Memory) Resize(size uint64) {
 	}
 }
 
-// Get returns offset + size as a new slice
+//获取内存指定位置的内容的复制
+
+// GetCopy returns offset + size as a new slice
 func (m *Memory) GetCopy(offset, size int64) (cpy []byte) {
 	if size == 0 {
 		return nil
@@ -83,6 +98,8 @@ func (m *Memory) GetCopy(offset, size int64) (cpy []byte) {
 
 	return
 }
+
+//获取内存指定位置的内容的引用
 
 // GetPtr returns the offset + size
 func (m *Memory) GetPtr(offset, size int64) []byte {

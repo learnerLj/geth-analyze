@@ -20,6 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 )
 
+//定义执行的函数、计算 gas 的函数、计算需要内存大小的函数
 type (
 	executionFunc func(pc *uint64, interpreter *EVMInterpreter, callContext *ScopeContext) ([]byte, error)
 	gasFunc       func(*EVM, *Contract, *Stack, *Memory, uint64) (uint64, error) // last parameter is the requested memory size as a uint64
@@ -27,20 +28,23 @@ type (
 	memorySizeFunc func(*Stack) (size uint64, overflow bool)
 )
 
+//一条指令的结构
 type operation struct {
 	// execute is the operation function
-	execute     executionFunc
-	constantGas uint64
-	dynamicGas  gasFunc
+	execute     executionFunc //执行函数
+	constantGas uint64        //固定的内在 gas
+	dynamicGas  gasFunc       // 计算动态gas
 	// minStack tells how many stack items are required
-	minStack int
+	minStack int //执行时需要的最小的栈大小
 	// maxStack specifies the max length the stack can have for this operation
 	// to not overflow the stack.
-	maxStack int
+	maxStack int //为了防止栈溢出，表示操作需要的最大的栈大小
 
 	// memorySize returns the memory size required for the operation
-	memorySize memorySizeFunc
+	memorySize memorySizeFunc //计算执行时需要的内存大小
 
+	//是否停机、是否跳转、是否修改状态、是否主动回退、是否会修改返回值
+	//（return 时会将内存的值写入存储，在合约创建时经常出现）
 	halts   bool // indicates whether the operation should halt further execution
 	jumps   bool // indicates whether the program counter should not increment
 	writes  bool // determines whether this a state modifying operation
@@ -48,6 +52,7 @@ type operation struct {
 	returns bool // determines whether the operations sets the return data content
 }
 
+//不同的 EVM 版本，指令集略微有差别
 var (
 	frontierInstructionSet         = newFrontierInstructionSet()
 	homesteadInstructionSet        = newHomesteadInstructionSet()
@@ -61,7 +66,11 @@ var (
 )
 
 // JumpTable contains the EVM opcodes supported at a given fork.
-type JumpTable [256]*operation
+type JumpTable [256]*operation //EVM 用 1 个字节表示操作码，因此至多 256 个操作码
+
+//新建各种 EVM 版本的跳转表，跳转表指的是根据小标对应操作码。
+//EIP-3529, EIP-3198, EIP-2929, EIP-1334, EIP-1884, EIP-2200 都修改过操作码
+//新版本在以前的版本上做更改，所以可以看到许多的 enable 函数。
 
 // newLondonInstructionSet returns the frontier, homestead, byzantium,
 // contantinople, istanbul, petersburg, berlin and london instructions.
