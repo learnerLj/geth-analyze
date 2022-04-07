@@ -86,12 +86,13 @@ var (
 )
 
 type Downloader struct {
+	//获取同步模式
 	mode uint32         // Synchronisation mode defining the strategy used (per sync cycle), use d.getMode() to get the SyncMode
 	mux  *event.TypeMux // Event multiplexer to announce sync operation events
 
 	checkpoint uint64   // Checkpoint block number to enforce head against (e.g. fast sync)
 	genesis    uint64   // Genesis block number to limit sync to (e.g. light client CHT)
-	queue      *queue   // Scheduler for selecting the hashes to download
+	queue      *queue   // Scheduler（很重要的调度程序） for selecting the hashes to download
 	peers      *peerSet // Set of active peers from which download can proceed
 
 	stateDB    ethdb.Database  // Database to state sync into (and deduplicate via)
@@ -116,13 +117,19 @@ type Downloader struct {
 	committed       int32
 	ancientLimit    uint64 // The maximum block number which can be regarded as ancient data.
 
-	// Channels
-	headerCh      chan dataPack        // Channel receiving inbound block headers
-	bodyCh        chan dataPack        // Channel receiving inbound block bodies
-	receiptCh     chan dataPack        // Channel receiving inbound receipts
-	bodyWakeCh    chan bool            // Channel to signal the block body fetcher of new tasks
-	receiptWakeCh chan bool            // Channel to signal the receipt fetcher of new tasks
-	headerProcCh  chan []*types.Header // Channel to feed the header processor new tasks
+	// Channels 极其重要的通道 代码的核心
+	//headers  header的输入通道，从网络下载的header会被送到这个通道
+	headerCh chan dataPack // Channel receiving inbound block headers
+	//bodies   bodies的输入通道，从网络下载的bodies会被送到这个通道
+	bodyCh chan dataPack // Channel receiving inbound block bodies
+	// receipts的输入通道，从网络下载的receipts会被送到这个通道
+	receiptCh chan dataPack // Channel receiving inbound receipts
+	//用来传输body fetcher新任务的通道
+	bodyWakeCh chan bool // Channel to signal the block body fetcher of new tasks
+	//  用来传输receipt fetcher 新任务的通道
+	receiptWakeCh chan bool // Channel to signal the receipt fetcher of new tasks
+	//通道为header处理者提供新的任务
+	headerProcCh chan []*types.Header // Channel to feed the header processor new tasks
 
 	// State sync
 	pivotHeader *types.Header // Pivot block header to dynamically push the syncing state root
@@ -132,7 +139,8 @@ type Downloader struct {
 	SnapSyncer     *snap.Syncer // TODO(karalabe): make private! hack for now
 	stateSyncStart chan *stateSync
 	trackStateReq  chan *stateReq
-	stateCh        chan dataPack // Channel receiving inbound node state data
+	//State的输入通道，从网络下载的State会被送到这个通道
+	stateCh chan dataPack // Channel receiving inbound node state data
 
 	// Cancellation and termination
 	cancelPeer string         // Identifier of the peer currently being used as the master (cancel on drop)
@@ -233,7 +241,7 @@ func New(checkpoint uint64, stateDb ethdb.Database, stateBloom *trie.SyncBloom, 
 		},
 		trackStateReq: make(chan *stateReq),
 	}
-	go dl.stateFetcher()
+	go dl.stateFetcher() //启动stateFetcher的任务监听
 	return dl
 }
 
@@ -355,6 +363,7 @@ func (d *Downloader) synchronise(id string, hash common.Hash, td *big.Int, mode 
 		return d.synchroniseMock(id, hash)
 	}
 	// Make sure only one goroutine is ever allowed past this point at once
+	//进行限制gorountine数量为1
 	if !atomic.CompareAndSwapInt32(&d.synchronising, 0, 1) {
 		return errBusy
 	}
@@ -367,6 +376,7 @@ func (d *Downloader) synchronise(id string, hash common.Hash, td *big.Int, mode 
 	// If we are already full syncing, but have a fast-sync bloom filter laying
 	// around, make sure it doesn't use memory any more. This is a special case
 	// when the user attempts to fast sync a new empty network.
+	//todo(不理解含义)
 	if mode == FullSync && d.stateBloom != nil {
 		d.stateBloom.Close()
 	}
@@ -387,9 +397,11 @@ func (d *Downloader) synchronise(id string, hash common.Hash, td *big.Int, mode 
 		mode = FastSync
 	}
 	// Reset the queue, peer set and wake channels to clean any internal leftover state
+	//重置
 	d.queue.Reset(blockCacheMaxItems, blockCacheInitialItems)
 	d.peers.Reset()
 
+	//清空通道
 	for _, ch := range []chan bool{d.bodyWakeCh, d.receiptWakeCh} {
 		select {
 		case <-ch:
