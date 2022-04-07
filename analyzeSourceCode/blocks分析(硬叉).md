@@ -6,7 +6,6 @@
 >
 > ​	[以太坊硬分叉简史 | 登链社区 | 深入浅出区块链技术 ](https://learnblockchain.cn/article/1024)
 >
-> 
 
 ## 源码
 

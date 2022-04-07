@@ -47,7 +47,7 @@ import (
 	lru "github.com/hashicorp/golang-lru"
 )
 
-//先不管等用到再看
+//计数器
 var (
 	headBlockGauge     = metrics.NewRegisteredGauge("chain/head/block", nil)
 	headHeaderGauge    = metrics.NewRegisteredGauge("chain/head/header", nil)
@@ -532,7 +532,7 @@ func (bc *BlockChain) loadLastState() error {
 // was fast synced or full synced and in which state, the method will try to
 // delete minimal data from disk whilst retaining chain consistency.
 
-//SetHead将本地链倒回到新的头部。 一般应该是分叉或者是得知新的区块产生
+//SetHead将本地链倒回到新的头部。 一般应该是分叉或者是得知新的区块产生需要废弃
 //根据节点是快速同步还是完全同步以及处于何种状态，
 //该方法将尝试从磁盘中删除最少的数据，同时保持链的一致性。
 func (bc *BlockChain) SetHead(head uint64) error {
@@ -901,6 +901,7 @@ func (bc *BlockChain) StopInsert() {
 
 // insertStopped returns true after StopInsert has been called.
 func (bc *BlockChain) insertStopped() bool {
+	//中断地址对应储存的值
 	return atomic.LoadInt32(&bc.procInterrupt) == 1
 }
 

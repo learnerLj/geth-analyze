@@ -4,7 +4,7 @@
 
 ## blockchain关键元素
 
-- db：持久化到底层数据储存，即leveldb；
+- db：持久化到底层数据储存，即leveldb（注意不是MySQL）（源码`core/rawdb`）；(参考文章：)[Leveldb 基本介绍和使用指南 - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/322520485)  以及对应的百科 [LevelDB_百度百科 (baidu.com)](https://baike.baidu.com/item/LevelDB/6416354#:~:text= Leveldb是一个google实现的非常高效的kv数据库，目前的版本1.2能够支持billion级别的数据量了。 在这个数量级别下还有着非常高的性能，主要归功于它的良好的设计。,特别是LSM算法。 [1] LevelDB 是单进程的服务，性能非常之高，在一台4核Q6600的CPU机器上，每秒钟写数据超过40w，而随机读的性能每秒钟超过10w。)
 - genesisBlock：创始区块
 - currentBlock：当前区块，blockchain中并不是储存链所有的block，而是通过currentBlock向前回溯直到genesisBlock，这样就构成了区块链
 - bodyCache、bodyRLPCache、blockCache、futureBlocks：区块链中的缓存结构，用于加快区块链的读取和构建；
@@ -271,7 +271,7 @@ func (bc *BlockChain) GetBlockByHash(hash common.Hash) *types.Block {
 }
 ```
 
-3：存储当前的headblock和设置当前的headHeader以及头部快速块
+3：存储当前的headblock和设置当前的headHeader以及头部fast块
 
 ```go
 bc.currentBlock.Store(currentBlock)
@@ -297,7 +297,7 @@ func main() {
 	fmt.Println(res)//res=>{test1}
 
 	res.Store("test2")
-	fmt.Println(res)//res=>{test}
+	fmt.Println(res)//res=>{test2}
 }
 ```
 
@@ -318,7 +318,14 @@ bc.currentFastBlock.Store(currentBlock)
 	}
 ```
 
+4. 获取难度值，具体难度值的计算请参考该篇文章：[以太坊挖矿难度调整算法详解](https://zhuanlan.zhihu.com/p/140750633)
 
+   ```go
+   //获取总难度值
+   headerTd := bc.GetTd(currentHeader.Hash(), currentHeader.Number.Uint64())
+   blockTd := bc.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
+   fastTd := bc.GetTd(currentFastBlock.Hash(), currentFastBlock.NumberU64())
+   ```
 
 ## 插入数据到blockchain中
 
@@ -331,6 +338,62 @@ bc.currentFastBlock.Store(currentBlock)
 ```go
 abort, results := bc.engine.VerifyHeaders(bc, headers, seals)
 ```
+
+校验`header`是共识引擎所要做的事情
+
+```go
+func (ethash *Ethash) VerifyHeaders(chain consensus.ChainReader, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error) {
+  ...
+  errors[index] = ethash.verifyHeaderWorker(chain, headers, seals, index)
+}
+
+
+//检验块的祖先是否已知以及块是否已知 并调用verifyheader
+func (ethash *Ethash) verifyHeaderWorker(chain consensus.ChainReader, headers []*types.Header, seals []bool, index int) error {
+	var parent *types.Header
+	if index == 0 {
+		parent = chain.GetHeader(headers[0].ParentHash, headers[0].Number.Uint64()-1)
+	} else if headers[index-1].Hash() == headers[index].ParentHash {
+		parent = headers[index-1]
+	}
+	if parent == nil {
+		return consensus.ErrUnknownAncestor
+	}
+	if chain.GetHeader(headers[index].Hash(), headers[index].Number.Uint64()) != nil {
+		return nil // known block
+	}
+    //调用verifyHeader进行更深的校验，也是最核心的校验
+	return ethash.verifyHeader(chain, headers[index], parent, false, seals[index])
+}
+```
+
+首先会调用verifyHeaderWorker进行校验，主要检验块的祖先是否已知以及块是否已知，接着会调用verifyHeader进行更深的校验，也是最核心的校验，大概做了以下几件事：
+
+- header.Extra不可超过32字节
+
+- header.Time不能超过15秒，15秒以后的就被认定为未来的块
+
+- 当前header的时间戳不可以等于父块的时间戳
+
+- 根据难度计算算法得出的expected必须和header.Difficulty 一致。
+
+- Gas limit 要 <= 2 ^ 63-1
+
+- gasUsed<= gasLimit
+
+- Gas limit 要在允许范围内
+
+- 块号必须是父块加1(不能有间隔)
+
+- 根据 ethash.VerifySeal去验证块是否满足POW难度要求
+
+  
+
+到此验证header的事情就做完了。
+
+---
+
+
 
 ④：循环校验body
 
@@ -365,6 +428,38 @@ bc.insertSideChain(block, it)
 bc.addFutureBlock(block);
 ```
 
+注意这里的添加 futureBlock，会被扔进futureBlocks里面去，在NewBlockChain的时候会开启新的goroutine:
+
+```go
+go bc.update()
+
+func (bc *BlockChain) update() {
+  futureTimer := time.NewTicker(5 * time.Second)
+  for{
+    select{
+      case <-futureTimer.C:
+			bc.procFutureBlocks()
+    }
+  }
+}
+
+func (bc *BlockChain) procFutureBlocks() {
+  ...
+	for _, hash := range bc.futureBlocks.Keys() {
+		if block, exist := bc.futureBlocks.Peek(hash); exist {
+			blocks = append(blocks, block.(*types.Block))
+		}
+	}
+...
+		for i := range blocks {
+			bc.InsertChain(blocks[i : i+1])
+		}
+	}
+}
+```
+
+会开启一个计时器，每5秒就会去执行插入这些未来的块。
+
 如果是其他错误，直接中断，并且报告坏块。
 
 ```go
@@ -373,33 +468,82 @@ bc.futureBlocks.Remove(block.Hash())
 bc.reportBlock(block, nil, err)
 ```
 
+---
+
+
+
 ⑤：没有校验错误
 
-如果是坏块，则报告；如果是未知块，则写入未知块；根据给定trie，创建state；
+- 如果是坏块，则报告；
 
-执行块中的交易：
+  ```go
+  if BadHashes[block.Hash()] {
+  			bc.reportBlock(block, nil, ErrBlacklistedHash)
+  			return it.index, ErrBlacklistedHash
+  		}
+  ...
+  }
+  ```
+
+- 如果是未知块，则写入未知块；
+
+  ```go
+  if err == ErrKnownBlock {
+  			logger := log.Debug
+  			if bc.chainConfig.Clique == nil {
+  				logger = log.Warn
+  			}
+  		...
+  			if err := bc.writeKnownBlock(block); err != nil {
+  				return it.index, err
+  			}
+  			stats.processed++
+  			lastCanon = block
+  			continue
+  		}
+  ```
+
+- 根据给定trie，创建state；
+
+  ```go
+  parent := it.previous()
+  		if parent == nil {
+  			parent = bc.GetHeader(block.ParentHash(), block.NumberU64()-1)
+  		}
+  		statedb, err := state.New(parent.Root, bc.stateCache)
+  ```
+
+- 执行块中的交易：
 
 ```go
 receipts, logs, usedGas, err := bc.processor.Process(block, statedb, bc.vmConfig)
 ```
 
-使用默认的validator校验状态：
+- 使用默认的validator校验状态：
 
 ```go
 bc.validator.ValidateState(block, statedb, receipts, usedGas);
 ```
 
-将块写入到区块链中并获取状态：
+- 将块写入到区块链中并获取状态：
 
 ```go
 status, err := bc.writeBlockWithState(block, receipts, logs, statedb, false)
 ```
+
+---
+
+
 
 ⑥：校验写入区块的状态
 
 - CanonStatTy ： 插入成功新的block
 - SideStatTy：插入成功新的分叉区块
 - Default：插入未知状态的block
+
+---
+
+
 
 ⑦：如果还有块，并且是未来块的话，那么将块添加到未来块的缓存中去
 
@@ -461,14 +605,3 @@ if status == CanonStatTy {
 - 更新currentFastBlock
 
 到此writeBlockWithState 结束，从上面可以知道，insertChain的最终还是调用了writeBlockWithState的insert方法完成了最终的插入动作。
-
-------
-
-## 思考
-
-1. 为什么还要导入已知块？？？writeKnownBlock
-
-参考：
-
-> https://github.com/mindcarver/blockchain_guide (优秀的区块链学习营地)
-
