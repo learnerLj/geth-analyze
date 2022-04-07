@@ -23,11 +23,14 @@ import (
 	"github.com/holiman/uint256"
 )
 
+//新建并发安全的可伸缩的对象池，避免重复的创建和删除影响性能。
 var stackPool = sync.Pool{
 	New: func() interface{} {
 		return &Stack{data: make([]uint256.Int, 0, 16)}
 	},
 }
+
+//栈使用 uint64[4] 小端序存储 256 位的栈，这样可以方便 64 位一组的访问。
 
 // Stack is an object for basic stack operations. Items popped to the stack are
 // expected to be changed and modified. stack does not take care of adding newly
@@ -36,29 +39,38 @@ type Stack struct {
 	data []uint256.Int
 }
 
+//因为 Get 方法先获取本地的对象，然后删除这个对象，找不到再从共享的对象获取。
+//返回值是接口类型，所以需要类型断言
 func newstack() *Stack {
 	return stackPool.Get().(*Stack)
 }
 
+//清零堆栈， return 的意思是销毁堆栈，写入返回值
 func returnStack(s *Stack) {
 	s.data = s.data[:0]
 	stackPool.Put(s)
 }
+
+//返回堆栈
 
 // Data returns the underlying uint256.Int array.
 func (st *Stack) Data() []uint256.Int {
 	return st.data
 }
 
+//压栈 1 层
 func (st *Stack) push(d *uint256.Int) {
 	// NOTE push limit (1024) is checked in baseCheck
 	st.data = append(st.data, *d)
 }
+
+//压栈多层
 func (st *Stack) pushN(ds ...uint256.Int) {
 	// FIXME: Is there a way to pass args by pointers.
 	st.data = append(st.data, ds...)
 }
 
+//出栈
 func (st *Stack) pop() (ret uint256.Int) {
 	ret = st.data[len(st.data)-1]
 	st.data = st.data[:len(st.data)-1]
