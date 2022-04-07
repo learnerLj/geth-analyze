@@ -1,3 +1,5 @@
+> 转载请标明出处: **[geth-analyze](https://github.com/learnerLj/geth-analyze)**
+
 # 前言
 
 在阅读这篇文章之前，请您先阅读[初步理解以太坊虚拟机](https://github.com/learnerLj/geth-analyze/blob/main/analyzeSourceCode/EVM%E8%AE%BE%E8%AE%A1%E4%B8%8E%E5%8E%9F%E7%90%86/%E5%88%9D%E6%AD%A5%E7%90%86%E8%A7%A3%E4%BB%A5%E5%A4%AA%E5%9D%8A%E8%99%9A%E6%8B%9F%E6%9C%BA.md)和[以太坊的数据组织](https://github.com/learnerLj/geth-analyze/blob/main/analyzeSourceCode/EVM%E8%AE%BE%E8%AE%A1%E4%B8%8E%E5%8E%9F%E7%90%86/%E4%BB%A5%E5%A4%AA%E5%9D%8A%E7%9A%84%E6%95%B0%E6%8D%AE%E7%BB%84%E7%BB%87.md)，它将会介绍 EVM 的基本知识，帮助您形成基本的认识。在开始之前，假设您已经掌握了上文中的基础，我们根据黄皮书进一步地补充理论基础。由于原始的黄皮书公式过多，不易阅读，可以参考按照论文[重写后的版本](https://github.com/chronaeon/beigepaper)。其次，本文使用的图片来自其他资料，会在参考资料部分注明。
