@@ -1,3 +1,5 @@
+> 转载请标明出处: **[geth-analyze](https://github.com/learnerLj/geth-analyze)**
+
 # MPT树
 
 > 由于**MPT树**不属于**core**部分所以有些地方并没有详细的解读，仅供参考。
