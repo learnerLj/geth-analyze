@@ -1,4 +1,26 @@
-> 转载请标明出处: **[geth-analyze](https://github.com/learnerLj/geth-analyze)**
+> 作者：[知乎-山上的石头](https://zhuanlan.zhihu.com/p/459969916)
+
+> GitHub: **[geth-analyze](https://github.com/learnerLj/geth-analyze)**
+
+# 前言
+
+这是我学习区块链入门时做的笔记（基于 0.8.7 版本），基本涵盖了编写合约所需常用知识，由于做智能合约安全方面的研究需要精通 Solidity 和 以太坊原理，因此做的笔记比较详实。
+
+这些笔记基于阅读英文文档，参考中文文档和 stack overflow 以及相关教程，我根据学习者的接受新知识的顺序，对文章结构做了适当优化。
+
+这篇文章既可以作为新手入门（因为啃英文文档并且搜索信息并不是容易的事情），也可以作为快捷的检索帮助文档（官方文档的翻译某些部分比较难以理解）。建议使用电脑端阅读。
+
+初稿完成时，都还没学 C 语言，只是一知半解的边学边记。在大二上学期的寒假，我重新整理了一遍，修正了部分错误，将拗口的表述转化成习惯表述，补充了文档中缺少的范例，根据经验突出需要强调的注意事项，使得读者可以跟容易的学习。
+
+本文共计接近7万字，如果觉得有帮助点赞关注呀，我将会继续写智能合约的攻击方式、以太坊虚拟机原理、字节码的深入探索等等，逐渐完善知识体系，并且会分享读论文时的前沿理论。
+
+参考：
+
+- [Solidity 最新(0.8.0)中文文档](https://link.zhihu.com/?target=https%3A//learnblockchain.cn/docs/solidity/index.html)
+- [Solidity - Solidity 0.8.12 documentation](https://link.zhihu.com/?target=https%3A//docs.soliditylang.org/en/latest/index.html)
+- [https://solidity-by-example.org](https://link.zhihu.com/?target=https%3A//solidity-by-example.org/)
+
+
 
 # 智能合约介绍
 
@@ -61,4 +83,20 @@ DELEGATECALL 指令也可以调用外部合约的函数，它的特点是调用�
 ### 调用序列
 
 每个合约有自己的全局变量和状态，一个交易可能触发一整条调用序列。例如A合约调用B合约和C合约，B合约调用C合约，C合约调用D合约和A合约，这样复杂的调用会改变参与的合约的状态。这样的执行顺序给静态分析带来了许多挑战。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
