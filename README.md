@@ -16,7 +16,7 @@ Go Ethereum Analyze
 注意：
 
 - 只解释部分细节，源码注释中不作过于详细的介绍，只提及所需的基础和学习的方向。
-- 对应的理论基础和源码梳理存放在 `analyzeSourceCode` 文件夹内，针对对应的内容，梳理脉络和实现流程。
+- **对应的理论基础和源码梳理存放在 `analyzeSourceCode` 文件夹内，针对对应的内容，梳理脉络和实现流程**。
 - 保留了英文注释，对于容易理解的英文注释并未翻译成中文。
 
 已完成的源码解析列表
@@ -32,7 +32,7 @@ Go Ethereum Analyze
 - [x] `core/tx_journal.go`
 - [x] `core/tx_noncer.go`
 - [x]  `core/forkid` 包
-- [ ]  `core/blocks.go`
+- [x]  `core/blocks.go`
 - [x]  `trie`包`MPT`分析
 
 已完成的理论基础列表
@@ -44,6 +44,8 @@ Go Ethereum Analyze
 - [x] 以太坊黄皮书中 EVM 设计思路解读
 - [x] 合约审计工具说明和使用
 - [x] 以太坊核心数据结构文章
+- [x] 完善以太坊架构图
+- [x] 深入合约字节码分析
 
 Todo list:
 
@@ -53,8 +55,6 @@ Todo list:
 - [ ] `core/blockchain.go`
 - [ ] `core/state`包
 - [ ] `core/state_transition.go`
-- [ ] 完善以太坊架构图
-- [ ] 深入合约字节码分析
 
 
 ---
@@ -106,7 +106,7 @@ Todo list:
 - 叔块：Uncle Block，不能成为主链一部分的孤儿区块，如果有幸被后来的区块收留进区块链就变成了叔块。收留了孤块的区块有额外的奖励。孤块一旦成为叔块，该区块统一可获得奖励。通过叔块奖励机制，来降低以太坊软分叉和平衡网速慢的矿工利益。
 - 随机数：nonce，记录在区块头中，努力工作的证明。
 - Gas：燃料是交易打包到区块时，在 EVM 运行所消耗的资源量的一种形象化概念，比喻需要燃料才能运行 EVM。在以太坊中，将 CPU 资源、存储资源按内置的规则，统一使用 Gas 作为资源单位表达。每执行一次虚拟机指令，均消耗一定的 Gas。
-- GasPrice: 燃料价格，任何交易都需要包含一个愿意支付的燃料单价，最终根据交易消耗的燃料量，计算手续费 (usedGas*gasPrice) 支付给矿工。
+- GasPrice:  燃料价格，任何交易都需要包含一个愿意支付的燃料单价，最终根据交易消耗的燃料量，计算手续费 (usedGas*gasPrice) 支付给矿工。
 - 价格预测：GPO(Gas Price Oracle)，Gas 价格预测，根据历史交易的 GasPrice 预测未来 GasPrice 走势。
 
 ### 技术术语
