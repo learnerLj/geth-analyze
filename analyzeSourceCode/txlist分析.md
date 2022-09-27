@@ -85,10 +85,6 @@ func main() {
 }
 ```
 
-运行结果如下：
-
-<img src="https://gitee.com/xyjjyyy/myimg/raw/master/img/202203190238947.png" alt="image-20220311150102351" style="zoom:50%;" />
-
 ---
 
 ## 函数功能解析

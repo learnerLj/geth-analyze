@@ -6,6 +6,8 @@ Go Ethereum Analyze
 
 本仓库复制官方的 `go-ethereum`，只进行解读，不做实际源码修改，供大家学习交流，请勿用于生产环境。
 
+主要源码分析放在了个人博客：https://www.blog-blockchain.xyz/tags/geth-source-code/ 欢迎交流学习！
+
 主要目标：
 
 - [ ]  深度理解以太坊底层运行机制
