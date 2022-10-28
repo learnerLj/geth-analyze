@@ -420,4 +420,5 @@ Todo list:
 - [Geth Documentation | Go Ethereum](https://geth.ethereum.org/docs/) geth 使用说明，调试程序，使用自带工具的参考。
 - [操作码详解和模拟](https://www.evm.codes/)。
 - [以太坊技术与实现](https://learnblockchain.cn/books/geth/)，作者作了整体性的说明，适合作为大致参考。
-- ##### [笔者的源码分析和理论基础、调试实操](https://github.com/learnerLj/geth-analyze)。
+- [很高质量的博客](http://yangzhe.me/page5/)
+- [笔者的源码分析和理论基础、调试实操](https://github.com/learnerLj/geth-analyze)。
