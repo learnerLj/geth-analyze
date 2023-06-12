@@ -4,9 +4,12 @@ Go Ethereum Analyze
 
 本仓库主要面向需要阅读以太坊源码的读者，暂时只关注研究智能合约安全必需的合约执行机制。网络和共识部分也欢迎朋友补充。
 
-本仓库复制官方的 `go-ethereum`，只进行解读，不做实际源码修改，供大家学习交流，请勿用于生产环境。
+本仓库复制官方的 `go-ethereum`，只进行解读，不做实际源码修改，供大家学习交流，请勿用于生产环境。欢迎交流学习！
 
-主要源码分析放在了个人博客：https://www.blog-blockchain.xyz/categories/geth/ 欢迎交流学习！
+- 主要源码分析放在了个人博客：https://www.blog-blockchain.xyz/categories/geth/
+- EVM设计解析：https://www.blog-blockchain.xyz/categories/evm/
+- 程序分析入门（持续更新）：https://www.blog-blockchain.xyz/categories/program-language/
+- solidity入门：https://www.blog-blockchain.xyz/categories/smart-contract-basics/
 
 主要目标：
 
